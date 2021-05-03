@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Tuple
 
 
@@ -35,7 +36,10 @@ def create_folder_if_needed(folder: str) -> None:
 
 
 def get_file_name(question: str) -> str:
-    return "_".join(question.split()).lower() + ".py"
+    return (
+        "_".join(map(lambda s: re.sub(r"[\W_]+", "", s), question.split())).lower()
+        + ".py"
+    )
 
 
 def leetcode_cli_exists() -> bool:
