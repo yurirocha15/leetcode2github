@@ -1,8 +1,8 @@
 # leetcode-practice-python
+This repository is a template which tries to automate adding solutions to leetcode problems.
+Using a single command, one can get a question information, generate the python executable the test files, and update the table at the end of the README.
 
-Gets a question information and generates the python file and the test file, and updates a table in the README.
-
-Uses [leetcode-cli](https://github.com/skygragon/leetcode-cli) to get the question information.
+This repository uses [leetcode-cli](https://github.com/skygragon/leetcode-cli) to get the question information. Big thanks to the leetcode-cli owners for providing such tool.
 
 ## Usage
 
