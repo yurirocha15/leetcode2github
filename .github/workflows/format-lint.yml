@@ -1,0 +1,23 @@
+name: format-lint
+
+on: push
+
+jobs:
+  format-lint:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+    - uses: conda-incubator/setup-miniconda@v2
+      with:
+        activate-environment: coding-practice
+        python-version: 3.7
+        auto-activate-base: false
+    - name: Setup
+      shell: bash -l {0}
+      run: make setup
+    - name: Format with black and isort
+      shell: bash -l {0}
+      run: make format
+    - name: Lint with pylint, mypy and flake8
+      shell: bash -l {0}
+      run: make lint
