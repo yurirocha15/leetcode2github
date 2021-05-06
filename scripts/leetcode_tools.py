@@ -156,7 +156,7 @@ def get_question(id: int):
         last_id = line.split()[0][1:]
         last_id = int(last_id) if last_id.isnumeric() else -1
         f.write(
-            f"\n|{last_id + 1} |[{data.title}](src/{folder}_problems/{data.file_name})|[{folder}](src/{folder}_problems)|{data.difficulty}|[Leetcode]({data.url})|"
+            f"|{last_id + 1} |[{data.title}](src/{folder}_problems/{data.file_name})|[{folder}](src/{folder}_problems)|{data.difficulty}|[Leetcode]({data.url})|\n"
         )
 
 
