@@ -4,6 +4,7 @@ format:
 
 get-question:
 	python scripts/leetcode_tools.py get-question $(ID)
+	make format
 
 lint:
 	env PYTHONPATH=src pytest src --flake8 --mypy
