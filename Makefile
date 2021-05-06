@@ -18,7 +18,7 @@ re-login:
 	python scripts/leetcode_tools.py relogin
 
 test-solutions:
-	env PYTHONPATH=src pytest src -s --verbose --cov=src --cov-report=html --cov-report=term-missing
+	env PYTHONPATH=src pytest src -s --verbose --cov=src --cov-report=html --cov-report=term-missing --suppress-no-test-exit-code
 
 tree:
 	tree -I "$(shell cat .gitignore | tr -s '\n' '|')"
