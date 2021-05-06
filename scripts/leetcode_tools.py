@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import List
 
 import clize
+from autoimport import fix_files
 from utils import (
     cammel_to_snake_case,
     create_folder_if_needed,
@@ -112,6 +113,9 @@ def get_question(id: int):
             )
         f.write("")
 
+    with open(os.path.join("src", f"{folder}_problems", data.file_name), "r+") as f:
+        fix_files([f])
+
     # # create tests
     with open(os.path.join("src", f"{folder}_problems", f"test_{folder}.py"), "a") as f:
         f.write("\n")
@@ -148,6 +152,11 @@ def get_question(id: int):
                 )
                 + "\n"
             )
+
+    with open(
+        os.path.join("src", f"{folder}_problems", f"test_{folder}.py"), "r+"
+    ) as f:
+        fix_files([f])
 
     # update readme
     with open("README.md", "r+") as f:
