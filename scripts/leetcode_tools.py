@@ -185,8 +185,11 @@ def leetcode_login():
     os.system(os.path.join("bin", "dist", "leetcode-cli") + " user -L")
     os.system("mkdir -p " + os.path.join(home_folder, ".lc", "leetcode"))
     print("Make sure to login to leetcode on either chrome or firefox.")
-    userid, leetcode_session, crsftoken = get_leetcode_cookies()
-    if userid and leetcode_session and crsftoken:
+    try:
+        userid, leetcode_session, crsftoken = get_leetcode_cookies()
+    except ValueError as e:
+        print(e.args)
+    else:
         with open(os.path.join(home_folder, ".lc", "leetcode", "user.json"), "w") as f:
             f.write("{\n")
             f.write(f'    "login": "{userid}",\n')

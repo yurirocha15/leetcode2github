@@ -78,9 +78,9 @@ def get_leetcode_cookies():
             break
 
     if not leetcode_session or not csrftoken or not username:
-        os.error(
-            "ERROR: Could not find the cookies neither on Chrome nor Firefox.\n"
-            + "Make sure to login to leetcode in one of these browsers"
+        raise ValueError(
+            "ERROR: Could not find the cookies neither on Chrome nor Firefox."
+            + " Make sure to login to leetcode in one of these browsers."
         )
 
     return username[0], leetcode_session[0], csrftoken[0]
