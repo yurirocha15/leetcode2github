@@ -189,10 +189,10 @@ def leetcode_login():
     if userid and leetcode_session and crsftoken:
         with open(os.path.join(home_folder, ".lc", "leetcode", "user.json"), "w") as f:
             f.write("{\n")
-            f.write('\t"login": "' + userid + '",\n')
-            f.write('\t"loginCSRF": "",\n')
-            f.write('\t"sessionCSRF": "' + crsftoken + '",\n')
-            f.write('\t"sessionId": "' + leetcode_session + '"\n')
+            f.write(f'    "login": "{userid}",\n')
+            f.write('    "loginCSRF": "",\n')
+            f.write(f'    "sessionCSRF": "{crsftoken}",\n')
+            f.write(f'    "sessionId": "{leetcode_session}"\n')
             f.write("}")
         os.system(os.path.join("bin", "dist", "leetcode-cli") + " user -c")
         print(f"Logged in as {userid}")
