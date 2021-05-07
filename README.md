@@ -18,10 +18,10 @@ $ make setup
 Currently, the only way to login is logging into chrome/firefox, then running:
 
 ```shell
-$ make re-login
+$ make leetcode-login
 ```
 
-and copying the needed cookies as required.
+This command automatically gets the needed cookies from the browser.
 
 ### Downloading a Question
 

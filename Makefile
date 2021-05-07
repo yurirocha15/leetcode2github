@@ -14,8 +14,8 @@ setup:
 	pre-commit install
 	python scripts/leetcode_tools.py download-client
 
-re-login:
-	python scripts/leetcode_tools.py relogin
+leetcode-login:
+	python scripts/leetcode_tools.py leetcode-login
 
 test-solutions:
 	env PYTHONPATH=src pytest src -s --verbose --cov=src --cov-report=html --cov-report=term-missing --suppress-no-test-exit-code

@@ -20,6 +20,7 @@ from utils import (
     create_folder_if_needed,
     download_leetcode_cli,
     get_file_name,
+    get_leetcode_cookies,
     leetcode_cli_exists,
 )
 
@@ -178,26 +179,27 @@ def download_client():
         download_leetcode_cli()
 
 
-def relogin():
+def leetcode_login():
     home_folder = str(Path.home())
     # Logout. This erases the user.json file
     os.system(os.path.join("bin", "dist", "leetcode-cli") + " user -L")
     os.system("mkdir -p " + os.path.join(home_folder, ".lc", "leetcode"))
-    print("Please insert your leetcode user ID:")
-    userid = str(input())
-    print("Please insert your crsftoken:")
-    crsftoken = str(input())
-    print("Please insert your LEETCODE_SESSION:")
-    leetcode_session = str(input())
-    with open(os.path.join(home_folder, ".lc", "leetcode", "user.json"), "w") as f:
-        f.write("{\n")
-        f.write('\t"login": "' + userid + '",\n')
-        f.write('\t"loginCSRF": "",\n')
-        f.write('\t"sessionCSRF": "' + crsftoken + '",\n')
-        f.write('\t"sessionId": "' + leetcode_session + '"\n')
-        f.write("}")
-    os.system(os.path.join("bin", "dist", "leetcode-cli") + " user -c")
+    print("Make sure to login to leetcode on either chrome or firefox.")
+    try:
+        userid, leetcode_session, crsftoken = get_leetcode_cookies()
+    except ValueError as e:
+        print(e.args)
+    else:
+        with open(os.path.join(home_folder, ".lc", "leetcode", "user.json"), "w") as f:
+            f.write("{\n")
+            f.write(f'    "login": "{userid}",\n')
+            f.write('    "loginCSRF": "",\n')
+            f.write(f'    "sessionCSRF": "{crsftoken}",\n')
+            f.write(f'    "sessionId": "{leetcode_session}"\n')
+            f.write("}")
+        os.system(os.path.join("bin", "dist", "leetcode-cli") + " user -c")
+        print(f"Logged in as {userid}")
 
 
 if __name__ == "__main__":
-    clize.run(get_question, submit_question, download_client, relogin)
+    clize.run(get_question, submit_question, download_client, leetcode_login)

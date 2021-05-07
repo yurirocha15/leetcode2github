@@ -53,3 +53,34 @@ def download_leetcode_cli():
     )
     os.system("tar -xvzf bin/leetcode-cli.node10.linux.x64.tar.gz -C bin")
     os.system("rm bin/leetcode-cli.node10.linux.x64.tar.gz")
+
+
+def get_leetcode_cookies():
+    import re
+
+    import browser_cookie3
+    import requests
+
+    url = "https://leetcode.com/profile/"
+    leetcode_session = []
+    csrftoken = []
+    username = []
+    browsers = (browser_cookie3.chrome(), browser_cookie3.firefox())
+    for browser in browsers:
+        r = requests.get(url, cookies=browser)
+        cookies = r.request.headers["Cookie"]
+        leetcode_session = re.findall(
+            r"LEETCODE_SESSION=(.*?);|$", cookies, flags=re.DOTALL
+        )
+        csrftoken = re.findall(r"csrftoken=(.*?)$|$", cookies, flags=re.DOTALL)
+        username = re.findall(r"username: '(.*?)',", r.text, flags=re.DOTALL)
+        if leetcode_session and csrftoken and username:
+            break
+
+    if not leetcode_session or not csrftoken or not username:
+        raise ValueError(
+            "ERROR: Could not find the cookies neither on Chrome nor Firefox."
+            + " Make sure to login to leetcode in one of these browsers."
+        )
+
+    return username[0], leetcode_session[0], csrftoken[0]
