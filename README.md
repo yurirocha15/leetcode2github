@@ -15,6 +15,10 @@ To install the needed libraries:
 $ make setup
 ```
 
+For windows users, unzipping might not work because of firewall.
+
+In that case, just download and unzip [file](https://github.com/skygragon/leetcode-cli/releases/download/2.6.2/leetcode-cli.node10.win32.x64.zip) into bin/dist folder.
+
 Currently, the only way to login is logging into chrome/firefox, then running:
 
 ```shell
