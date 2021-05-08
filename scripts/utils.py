@@ -1,4 +1,5 @@
 import os
+import platform
 import re
 from typing import Tuple
 
@@ -47,12 +48,23 @@ def leetcode_cli_exists() -> bool:
 
 
 def download_leetcode_cli():
-    os.system("mkdir -p bin")
-    os.system(
-        "wget -P bin https://github.com/skygragon/leetcode-cli/releases/download/2.6.2/leetcode-cli.node10.linux.x64.tar.gz"
-    )
-    os.system("tar -xvzf bin/leetcode-cli.node10.linux.x64.tar.gz -C bin")
-    os.system("rm bin/leetcode-cli.node10.linux.x64.tar.gz")
+    os_name = platform.system()
+    if os_name == "Linux":
+        os.system("mkdir -p bin")
+        os.system(
+            "wget -P bin https://github.com/skygragon/leetcode-cli/releases/download/2.6.2/leetcode-cli.node10.linux.x64.tar.gz"
+        )
+        os.system("tar -xvzf bin/leetcode-cli.node10.linux.x64.tar.gz -C bin")
+        os.system("rm bin/leetcode-cli.node10.linux.x64.tar.gz")
+    elif os_name == "Windows":
+        os.system("mkdir bin")
+        os.system(
+            'powershell -c "wget -outfile bin/leetcode-cli.zip -uri https://github.com/skygragon/leetcode-cli/releases/download/2.6.2/leetcode-cli.node10.win32.x64.zip"'
+        )
+        os.system(
+            'powershell -c "expand-archive -path bin/leetcode-cli.zip -destinationpath bin"'
+        )
+        os.system('powershell -c "rm bin/leetcode-cli.zip"')
 
 
 def get_leetcode_cookies():
