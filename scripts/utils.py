@@ -80,7 +80,11 @@ def get_leetcode_cookies():
     leetcode_session = []
     csrftoken = []
     username = []
-    browsers = (browser_cookie3.chrome(), browser_cookie3.firefox())
+    try:
+        browsers = (browser_cookie3.chrome(), browser_cookie3.firefox())
+    except browser_cookie3.BrowserCookieError as e:
+        print(e.args)
+
     for browser in browsers:
         try:
             r = requests.get(url, cookies=browser)
