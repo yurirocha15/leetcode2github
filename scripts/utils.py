@@ -1,4 +1,5 @@
 import os
+import platform
 import re
 from typing import Tuple
 
@@ -43,16 +44,30 @@ def get_file_name(question: str) -> str:
 
 
 def leetcode_cli_exists() -> bool:
-    return os.path.exists(os.path.join("bin", "dist", "leetcode-cli"))
+    cli_exist = os.path.exists(
+        os.path.join("bin", "dist", "leetcode-cli")
+    ) or os.path.exists(os.path.join("bin", "dist", "leetcode-cli.exe"))
+    return cli_exist
 
 
 def download_leetcode_cli():
-    os.system("mkdir -p bin")
-    os.system(
-        "wget -P bin https://github.com/skygragon/leetcode-cli/releases/download/2.6.2/leetcode-cli.node10.linux.x64.tar.gz"
-    )
-    os.system("tar -xvzf bin/leetcode-cli.node10.linux.x64.tar.gz -C bin")
-    os.system("rm bin/leetcode-cli.node10.linux.x64.tar.gz")
+    os_name = platform.system()
+    if os_name in ["Linux", "Darwin"]:
+        os.system("mkdir -p bin")
+        os.system(
+            "wget -P bin https://github.com/skygragon/leetcode-cli/releases/download/2.6.2/leetcode-cli.node10.linux.x64.tar.gz"
+        )
+        os.system("tar -xvzf bin/leetcode-cli.node10.linux.x64.tar.gz -C bin")
+        os.system("rm bin/leetcode-cli.node10.linux.x64.tar.gz")
+    elif os_name == "Windows":
+        os.system("mkdir bin")
+        os.system(
+            'powershell -c "wget -outfile bin/leetcode-cli.zip -uri https://github.com/skygragon/leetcode-cli/releases/download/2.6.2/leetcode-cli.node10.win32.x64.zip"'
+        )
+        os.system(
+            'powershell -c "expand-archive -path bin/leetcode-cli.zip -destinationpath bin"'
+        )
+        os.system('powershell -c "rm bin/leetcode-cli.zip"')
 
 
 def get_leetcode_cookies():
@@ -65,10 +80,17 @@ def get_leetcode_cookies():
     leetcode_session = []
     csrftoken = []
     username = []
-    browsers = (browser_cookie3.chrome(), browser_cookie3.firefox())
+    try:
+        browsers = (browser_cookie3.chrome(), browser_cookie3.firefox())
+    except browser_cookie3.BrowserCookieError as e:
+        print(e.args)
+
     for browser in browsers:
-        r = requests.get(url, cookies=browser)
-        cookies = r.request.headers["Cookie"]
+        try:
+            r = requests.get(url, cookies=browser)
+            cookies = r.request.headers["Cookie"]
+        except:
+            continue
         leetcode_session = re.findall(
             r"LEETCODE_SESSION=(.*?);|$", cookies, flags=re.DOTALL
         )

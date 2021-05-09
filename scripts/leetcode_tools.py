@@ -9,6 +9,7 @@
 # and run ./bin/dist/leetcode-cli user -c
 
 import os
+import platform
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
@@ -47,7 +48,7 @@ def get_question(id: int):
     os.system(
         os.path.join("bin", "dist", "leetcode-cli") + " show " + str(id) + " > tmp.txt"
     )
-    with open("tmp.txt", "r") as f:
+    with open("tmp.txt", "r", encoding="UTF8") as f:
         for i, line in enumerate(f):
             print(line)
             if i == 0:
@@ -183,7 +184,12 @@ def leetcode_login():
     home_folder = str(Path.home())
     # Logout. This erases the user.json file
     os.system(os.path.join("bin", "dist", "leetcode-cli") + " user -L")
-    os.system("mkdir -p " + os.path.join(home_folder, ".lc", "leetcode"))
+    os_name = platform.system()
+    if os_name in ["Linux", "Darwin"]:
+        cmd = "mkdir -p "
+    elif os_name == "Windows":
+        cmd = "mkdir "
+    os.system(cmd + os.path.join(home_folder, ".lc", "leetcode"))
     print("Make sure to login to leetcode on either chrome or firefox.")
     try:
         userid, leetcode_session, crsftoken = get_leetcode_cookies()
