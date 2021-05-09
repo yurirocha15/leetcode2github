@@ -52,7 +52,7 @@ def leetcode_cli_exists() -> bool:
 
 def download_leetcode_cli():
     os_name = platform.system()
-    if os_name == "Linux":
+    if os_name in ["Linux", "Darwin"]:
         os.system("mkdir -p bin")
         os.system(
             "wget -P bin https://github.com/skygragon/leetcode-cli/releases/download/2.6.2/leetcode-cli.node10.linux.x64.tar.gz"

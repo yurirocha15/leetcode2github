@@ -185,7 +185,7 @@ def leetcode_login():
     # Logout. This erases the user.json file
     os.system(os.path.join("bin", "dist", "leetcode-cli") + " user -L")
     os_name = platform.system()
-    if os_name == "Linux":
+    if os_name in ["Linux", "Darwin"]:
         cmd = "mkdir -p "
     elif os_name == "Windows":
         cmd = "mkdir "
