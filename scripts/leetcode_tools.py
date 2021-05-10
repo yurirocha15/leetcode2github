@@ -155,11 +155,6 @@ def get_question(id: int):
                 + "\n"
             )
 
-    with open(
-        os.path.join("src", f"{folder}_problems", f"test_{folder}.py"), "r+"
-    ) as f:
-        fix_files([f])
-
     # update readme
     with open("README.md", "r+") as f:
         for line in f:
