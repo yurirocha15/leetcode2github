@@ -4,7 +4,7 @@ import re
 from typing import Tuple
 
 
-def cammel_to_snake_case(func_str: str) -> Tuple[str, str]:
+def get_function_name(func_str: str) -> Tuple[str, str]:
     ret = ""
     func_name = ""
     for i, c in enumerate(func_str):
@@ -12,10 +12,7 @@ def cammel_to_snake_case(func_str: str) -> Tuple[str, str]:
             func_name = ret.split()[-1]
             ret += func_str[i:]
             break
-        if c.isupper():
-            ret += "_" + c.lower()
-        else:
-            ret += c
+        ret += c
     return ret, func_name
 
 

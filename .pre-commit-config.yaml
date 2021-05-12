@@ -6,8 +6,3 @@ repos:
     language: system
     entry: make format
     types: [python]
-  - id: lint
-    name: lint
-    language: system
-    entry: make lint
-    types: [python]

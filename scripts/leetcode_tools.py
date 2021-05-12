@@ -17,10 +17,10 @@ from typing import List
 import clize
 from autoimport import fix_files
 from utils import (
-    cammel_to_snake_case,
     create_folder_if_needed,
     download_leetcode_cli,
     get_file_name,
+    get_function_name,
     get_leetcode_cookies,
     leetcode_cli_exists,
 )
@@ -76,7 +76,7 @@ def get_question(id: int):
             if line:
                 data.code.append(line)
 
-    data.code[-1], data.function_name = cammel_to_snake_case(data.code[-1])
+    data.code[-1], data.function_name = get_function_name(data.code[-1])
 
     print("Please, choose the folder to save the problem: ")
     folder = input()
