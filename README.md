@@ -39,5 +39,5 @@ $ make get-question ID=<question_id>
 
 ## Question Solutions
 
-| ID | Problem    | Category | Difficulty | From |
-|:--:|------------|----------|------------|------|
+| ID | Problem    | Leetcode ID | Difficulty | From |
+|:--:|------------|-------------|------------|------|
