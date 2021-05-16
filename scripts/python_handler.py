@@ -14,19 +14,10 @@ class PythonHandler:
             f.write("\n")
             f.write("\n")
             f.write('if __name__ == "__main__":\n')
-            f.write("    solution = Solution()\n")
-            for i in range(len(self.question_data.inputs)):
-                f.write(
-                    f"    assert"
-                    + (" not" if self.question_data.outputs[i] == "false" else "")
-                    + f" solution.{self.question_data.function_name}({self.question_data.inputs[i]})"
-                    + (
-                        f" == {self.question_data.outputs[i]}"
-                        if self.question_data.outputs[i] not in ["true", "false"]
-                        else ""
-                    )
-                    + "\n"
-                )
+            f.write("    import pytest\n")
+            f.write(
+                f"    pytest.main(['{os.path.join('tests', f'test_{self.question_data.id}.py')}'])\n"
+            )
             f.write("")
 
         with open(self.question_data.file_path, "r+") as f:
