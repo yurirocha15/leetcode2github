@@ -1,4 +1,5 @@
 import operator
+import os
 import pickle
 import time
 from dataclasses import dataclass, field
@@ -28,11 +29,14 @@ class QuestionDB:
 
     def load(self):
         """Load the question data from disk"""
-        self.question_data_dict = pickle.load(open(self.db_file, "wb"))
+        if os.path.isfile(self.db_file):
+            with open(self.db_file, "rb") as f:
+                self.question_data_dict = pickle.load(f)
 
     def save(self):
         """Save the question data to disk"""
-        pickle.dump(self.db_file, open(self.db_file, "rb"))
+        with open(self.db_file, "wb") as f:
+            pickle.dump(self.question_data_dict, f)
 
     def get_data(self) -> Dict[int, QuestionData]:
         """Returns the question data

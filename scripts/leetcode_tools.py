@@ -74,6 +74,12 @@ def get_question(id: int):
     py_handler.generate_source()
     py_handler.generete_tests()
 
+    # store data
+    qdb = QuestionDB()
+    qdb.load()
+    qdb.add_question(data)
+    qdb.save()
+
     # update readme
     with open("README.md", "r+") as f:
         for line in f:
