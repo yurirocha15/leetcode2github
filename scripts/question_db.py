@@ -17,7 +17,7 @@ class QuestionData:
     file_path: str = ""
     inputs: List[str] = field(default_factory=list)
     outputs: List[str] = field(default_factory=list)
-    categories: List[str] = field(default_factory=list)
+    categories: List[Dict[str, str]] = field(default_factory=list)
 
 
 class QuestionDB:

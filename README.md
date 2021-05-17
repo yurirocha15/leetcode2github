@@ -39,5 +39,4 @@ $ make get-question ID=<question_id>
 
 ## Question Solutions
 
-| ID | Problem    | Leetcode ID | Difficulty | From |
-|:--:|------------|-------------|------------|------|
+Please check the [Solution Summary](QUESTIONS.md)
