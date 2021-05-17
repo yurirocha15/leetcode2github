@@ -62,7 +62,6 @@ class LeetcodeClient:
         client = requests.session()
         r = client.get(url, cookies=browser_cookie3.chrome())
         cookies = r.request.headers["Cookie"]
-        csrftoken = client.cookies["csrftoken"]
 
         url = "https://leetcode.com/graphql"
 

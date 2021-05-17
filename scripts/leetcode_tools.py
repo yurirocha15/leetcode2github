@@ -39,16 +39,6 @@ def get_question(id: int):
     qdb.add_question(data)
     qdb.save()
 
-    # update readme
-    with open("README.md", "r+") as f:
-        for line in f:
-            pass
-        last_id = line.split()[0][1:]
-        last_id = int(last_id) if last_id.isnumeric() else -1
-        f.write(
-            f"|{last_id + 1} |[{data.title}]({data.file_path})|{data.id}|{data.difficulty}|[Leetcode]({data.url})|\n"
-        )
-
 
 def submit_question():
     pass
