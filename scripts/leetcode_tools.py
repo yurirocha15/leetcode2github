@@ -16,6 +16,7 @@ import clize
 from leetcode_client import LeetcodeClient
 from python_handler import PythonHandler
 from question_db import QuestionData, QuestionDB
+from readme_handler import ReadmeHandler
 
 
 def get_question(id: int):
@@ -33,6 +34,10 @@ def get_question(id: int):
     qdb.load()
     qdb.add_question(data)
     qdb.save()
+
+    # update readme
+    rh = ReadmeHandler()
+    rh.build_readme()
 
 
 def submit_question():
