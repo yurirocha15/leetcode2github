@@ -35,4 +35,4 @@ $ make get-question ID=<question_id>
 
 ## Question Solutions
 
-Please check the [Solution Summary](QUESTIONS.md)
+Please check the [Solution Summary](QUESTIONS.md).
