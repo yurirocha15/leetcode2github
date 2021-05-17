@@ -13,11 +13,18 @@ class ReadmeTable:
 
 
 class ReadmeHandler:
+    """Updates the README with the solved questions"""
+
     def __init__(self):
         self.readme_file = "QUESTIONS.md"
 
-    def build_readme(self):
-        question_list = self.get_question_data()
+    def build_readme(self, question_list: List[QuestionData]):
+        """Updates the README file
+
+        Args:
+            question_list (List[QuestionData]): a sorted list with the question data
+        """
+
         readme_table_dict: Dict[str, ReadmeTable] = {}
         main_table = ReadmeTable(
             title="Solution Summary",
@@ -52,14 +59,15 @@ class ReadmeHandler:
                 ]
             )
 
-            self.dump_tables(main_table, readme_table_dict)
-
-    def get_question_data(self) -> List[QuestionData]:
-        qdb = QuestionDB()
-        qdb.load()
-        return qdb.get_sorted_list(sort_by="creation_time")
+        self.dump_tables(main_table, readme_table_dict)
 
     def dump_tables(self, main_table: ReadmeTable, tables: Dict[str, ReadmeTable]):
+        """Generates the README file
+
+        Args:
+            main_table (ReadmeTable): the table containing all questions
+            tables (Dict[str, ReadmeTable]): a dictionary with tables separated by category
+        """
         with open(self.readme_file, "w") as f:
             f.write(f"# {main_table.title}\n")
             f.write("\n")
@@ -89,5 +97,7 @@ class ReadmeHandler:
 
 
 if __name__ == "__main__":
+    qdb = QuestionDB()
+    qdb.load()
     rh = ReadmeHandler()
-    rh.build_readme()
+    rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))

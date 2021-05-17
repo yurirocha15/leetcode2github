@@ -3,13 +3,16 @@ import os
 import platform
 import re
 import time
+from typing import Dict, List, Tuple
 
 import browser_cookie3
 import requests
-from question_db import QuestionData, QuestionDB
+from question_db import QuestionData
 
 
 class LeetcodeClient:
+    """Handles getting data from leetcode"""
+
     def __init__(self):
         os_name = platform.system()
         if os_name == "Linux":
@@ -26,12 +29,25 @@ class LeetcodeClient:
             )
 
     def login(self):
+        """Login to leetcode using the leetcode-cli
+
+        The file ~/.lc/leetcode/user.json needs to exist for this command to work
+        """
         os.system(self.binary_path + " user -c")
 
     def logout(self):
+        """Logout from leetcode"""
         os.system(self.binary_path + " user -L")
 
-    def get_question_data(self, id) -> QuestionData:
+    def get_question_data(self, id: int) -> QuestionData:
+        """Gets the data from a question
+
+        Args:
+            id (int): the question id
+
+        Returns:
+            QuestionData: The data needed to generate the question files
+        """
         data = QuestionData(id=id, creation_time=time.time())
         os.system(
             self.binary_path + " show " + str(id) + " -gx -l python3 -o ./src > tmp.txt"
@@ -70,7 +86,16 @@ class LeetcodeClient:
 
         return data
 
-    def get_tags(self, question_name):
+    def get_tags(self, question_name: str) -> List[Dict[str, str]]:
+        """Gets the categories of a question
+
+        Args:
+            question_name (str): the question slug (which is inside the leetcode url)
+
+        Returns:
+            List[Dict[str, str]]: the categories information
+        """
+
         url = "https://leetcode.com/profile/"
         client = requests.session()
         r = client.get(url, cookies=browser_cookie3.chrome())
@@ -99,11 +124,19 @@ class LeetcodeClient:
         response = requests.request("POST", url, headers=headers, data=payload)
         return json.loads(response.text)["data"]["question"]["topicTags"]
 
-    def get_leetcode_cookies(self):
+    def get_leetcode_cookies(self) -> Tuple[str, str, str]:
+        """Gets the cookies from the browser
+
+        Raises:
+            ValueError: if the user is not logger either on chrome or firefox
+
+        Returns:
+            Tuple[str, str, str]: the username and the cookies
+        """
         url = "https://leetcode.com/profile/"
-        leetcode_session = ""
-        csrftoken = ""
-        username = ""
+        leetcode_session: str = ""
+        csrftoken: str = ""
+        username: str = ""
         try:
             browsers = (browser_cookie3.chrome(), browser_cookie3.firefox())
         except browser_cookie3.BrowserCookieError as e:

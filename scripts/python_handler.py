@@ -5,10 +5,13 @@ from question_db import QuestionData
 
 
 class PythonHandler:
+    """Generates the source and test python files"""
+
     def __init__(self, question_data: QuestionData):
         self.question_data = question_data
 
     def generate_source(self):
+        """Generates the source file"""
         with open(self.question_data.file_path, "a") as f:
             f.write("        pass\n")
             f.write("\n")
@@ -24,7 +27,7 @@ class PythonHandler:
             fix_files([f])
 
     def generete_tests(self):
-        # # create tests
+        """Generates the test file"""
         with open(os.path.join("tests", f"test_{self.question_data.id}.py"), "a") as f:
             f.write("#!/usr/bin/env python\n")
             f.write("\n")

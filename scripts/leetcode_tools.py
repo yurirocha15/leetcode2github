@@ -1,13 +1,3 @@
-# to login copy firefox/chrome cookies
-# add to ~/.lc/leetcode/user.json
-# {
-#   "login": <user>,
-#   "loginCSRF": "",
-#   "sessionCSRF": <csrftoken>,
-#   "sessionId": <LEETCODE_SESSION>,
-# }
-# and run ./bin/dist/leetcode-cli user -c
-
 import os
 import platform
 from pathlib import Path
@@ -20,6 +10,11 @@ from readme_handler import ReadmeHandler
 
 
 def get_question(id: int):
+    """Generates all the files for a question
+
+    Args:
+        id (int): the question id
+    """
     # get question data
     lc = LeetcodeClient()
     data: QuestionData = lc.get_question_data(id)
@@ -37,7 +32,7 @@ def get_question(id: int):
 
     # update readme
     rh = ReadmeHandler()
-    rh.build_readme()
+    rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
 
 
 def submit_question():
@@ -45,6 +40,7 @@ def submit_question():
 
 
 def leetcode_login():
+    """Login to leetcode"""
     home_folder = str(Path.home())
     lc = LeetcodeClient()
     # Logout. This erases the user.json file
