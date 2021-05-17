@@ -1,5 +1,6 @@
 import json
 import os
+import platform
 import re
 import time
 
@@ -10,7 +11,19 @@ from question_db import QuestionData, QuestionDB
 
 class LeetcodeClient:
     def __init__(self):
-        self.binary_path = os.path.join("bin", "dist", "leetcode-cli")
+        os_name = platform.system()
+        if os_name == "Linux":
+            self.binary_path = os.path.join(
+                "bin", "leetcode-cli", "linux", "leetcode-cli"
+            )
+        elif os_name == "Windows":
+            self.binary_path = os.path.join(
+                "bin", "leetcode-cli", "windows", "leetcode-cli.exe"
+            )
+        elif os_name == "Darwin":
+            self.binary_path = os.path.join(
+                "bin", "leetcode-cli", "macos", "leetcode-cli"
+            )
 
     def login(self):
         os.system(self.binary_path + " user -c")

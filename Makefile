@@ -9,7 +9,6 @@ get-question:
 setup:
 	python -m pip install -r requirements.txt
 	pre-commit install
-	python scripts/leetcode_tools.py download-client
 
 leetcode-login:
 	python scripts/leetcode_tools.py leetcode-login

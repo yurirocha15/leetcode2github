@@ -14,16 +14,11 @@ from pathlib import Path
 
 import clize
 from leetcode_client import LeetcodeClient
-from my_utils import download_leetcode_cli, leetcode_cli_exists
 from python_handler import PythonHandler
 from question_db import QuestionData, QuestionDB
 
 
 def get_question(id: int):
-    if not leetcode_cli_exists():
-        print("Please run 'make setup' to download the leetcode-cli")
-        return
-
     # get question data
     lc = LeetcodeClient()
     data: QuestionData = lc.get_question_data(id)
@@ -42,11 +37,6 @@ def get_question(id: int):
 
 def submit_question():
     pass
-
-
-def download_client():
-    if not leetcode_cli_exists():
-        download_leetcode_cli()
 
 
 def leetcode_login():
@@ -78,4 +68,4 @@ def leetcode_login():
 
 
 if __name__ == "__main__":
-    clize.run(get_question, submit_question, download_client, leetcode_login)
+    clize.run(get_question, submit_question, leetcode_login)
