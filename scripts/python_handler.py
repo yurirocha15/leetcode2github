@@ -14,17 +14,22 @@ class PythonHandler:
         """Generates the source file"""
         with open(self.question_data.file_path, "a", encoding="UTF8") as f:
             f.write("        pass\n")
+
+        # fix imports
+        with open(self.question_data.file_path, "r+", encoding="UTF8") as f:
+            fix_files([f])
+
+        # add main
+        with open(self.question_data.file_path, "a", encoding="UTF8") as f:
             f.write("\n")
             f.write("\n")
             f.write('if __name__ == "__main__":\n')
             f.write("    import pytest\n")
+            f.write("    import os\n")
             f.write(
-                f"    pytest.main(['{os.path.join('tests', f'test_{self.question_data.id}.py')}'])\n"
+                f"    pytest.main([os.path.join('tests', 'test_{self.question_data.id}.py')])\n"
             )
             f.write("")
-
-        with open(self.question_data.file_path, "r+", encoding="UTF8") as f:
-            fix_files([f])
 
     def generete_tests(self):
         """Generates the test file"""
