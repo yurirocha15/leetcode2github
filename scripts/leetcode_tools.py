@@ -40,8 +40,34 @@ def get_question(id: int):
         rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
 
 
-def submit_question():
-    pass
+def submit_question(id: int):
+    # submissions
+    source_file = ""
+    for f in os.listdir("src"):
+        if f"leetcode_{id}" in f:
+            source_file = os.path.join("src", f)
+            break
+    # create submit file
+    if source_file:
+        lines = []
+        with open(source_file, "r", encoding="UTF8") as f:
+            for line in f:
+                if 'if __name__ == "__main__":' in line:
+                    break
+                lines.append(line)
+
+        with open("tmp.py", "w", encoding="UTF8") as f:
+            f.writelines(lines)
+
+        lc = LeetcodeClient()
+        try:
+            lc.submit_question("tmp.py")
+        except Exception as e:
+            pass
+        os.remove("tmp.py")
+
+    else:
+        print(f"Could not find the question with id {id}")
 
 
 def leetcode_login():
