@@ -33,6 +33,14 @@ To generate the files of a given question:
 $ make get-question ID=<question_id>
 ```
 
+### Submitting a Question
+
+To submit a question to leetcode:
+
+```shell
+$ make submit-question ID=<question_id>
+```
+
 ## Question Solutions
 
 Please check the [Solution Summary](QUESTIONS.md).
