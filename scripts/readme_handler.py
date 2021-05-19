@@ -25,7 +25,21 @@ class ReadmeHandler:
             question_list (List[QuestionData]): a sorted list with the question data
         """
 
-        readme_table_dict: Dict[str, ReadmeTable] = {}
+        category_tables: Dict[str, ReadmeTable] = {}
+        difficulty_tables: Dict[str, ReadmeTable] = {
+            "Easy": ReadmeTable(
+                title='<a name="Easy"></a>Easy Questions',
+                fields=["ID", "Problem", "Leetcode ID", "Categories"],
+            ),
+            "Medium": ReadmeTable(
+                title='<a name="Medium"></a>Medium Questions',
+                fields=["ID", "Problem", "Leetcode ID", "Categories"],
+            ),
+            "Hard": ReadmeTable(
+                title='<a name="Hard"></a>Hard Questions',
+                fields=["ID", "Problem", "Leetcode ID", "Categories"],
+            ),
+        }
         main_table = ReadmeTable(
             title="Solution Summary",
             fields=["ID", "Problem", "Leetcode ID", "Categories", "Difficulty"],
@@ -34,41 +48,55 @@ class ReadmeHandler:
             categories_str = ""
             for c in question.categories:
                 categories_str += f"[{c['name']}](#{c['slug']}), "
-                if c["slug"] not in readme_table_dict:
-                    readme_table_dict[c["slug"]] = ReadmeTable(
+                if c["slug"] not in category_tables:
+                    category_tables[c["slug"]] = ReadmeTable(
                         title=f"""<a name="{c['slug']}"></a>{c['name']}""",
                         fields=["ID", "Problem", "Leetcode ID", "Difficulty"],
                     )
-                readme_table_dict[c["slug"]].values.append(
+                category_tables[c["slug"]].values.append(
                     [
-                        str(len(readme_table_dict[c["slug"]].values) + 1),
+                        str(len(category_tables[c["slug"]].values) + 1),
                         f"[{question.title}]({question.file_path})",
                         f"[{question.id}]({question.url})",
-                        question.difficulty,
+                        f"[{question.difficulty}](#{question.difficulty})",
                     ]
                 )
             categories_str = categories_str[:-2]
 
+            difficulty_tables[question.difficulty].values.append(
+                [
+                    str(len(difficulty_tables[question.difficulty].values) + 1),
+                    f"[{question.title}]({question.file_path})",
+                    f"[{question.id}]({question.url})",
+                    categories_str,
+                ]
+            )
             main_table.values.append(
                 [
                     str(len(main_table.values) + 1),
                     f"[{question.title}]({question.file_path})",
                     f"[{question.id}]({question.url})",
                     categories_str,
-                    question.difficulty,
+                    f"[{question.difficulty}](#{question.difficulty})",
                 ]
             )
 
-        self.dump_tables(main_table, readme_table_dict)
+        self.dump_tables(main_table, category_tables, difficulty_tables)
 
-    def dump_tables(self, main_table: ReadmeTable, tables: Dict[str, ReadmeTable]):
+    def dump_tables(
+        self,
+        main_table: ReadmeTable,
+        category_tables: Dict[str, ReadmeTable],
+        difficulty_tables: Dict[str, ReadmeTable],
+    ):
         """Generates the README file
 
         Args:
             main_table (ReadmeTable): the table containing all questions
-            tables (Dict[str, ReadmeTable]): a dictionary with tables separated by category
+            category_tables (Dict[str, ReadmeTable]): a dictionary with tables separated by category
+            difficulty_tables (Dict[str, ReadmeTable]): a dictionary with tables separated by difficulty
         """
-        with open(self.readme_file, "w") as f:
+        with open(self.readme_file, "w", encoding="UTF8") as f:
             f.write(f"# {main_table.title}\n")
             f.write("\n")
             f.write("|" + "|".join(main_table.fields) + "|\n")
@@ -83,7 +111,7 @@ class ReadmeHandler:
 
             f.write("\n")
             f.write("# Categories\n")
-            for table in sorted(tables.items()):
+            for table in sorted(category_tables.items()):
                 f.write(f"## {table[1].title}\n")
                 f.write("\n")
                 f.write("|" + "|".join(table[1].fields) + "|\n")
@@ -93,6 +121,27 @@ class ReadmeHandler:
                     + "|\n"
                 )
                 for value in table[1].values:
+                    f.write("|" + "|".join(value) + "|\n")
+
+            f.write("\n")
+            f.write("# Difficulties\n")
+            for difficulty in ("Easy", "Medium", "Hard"):
+                f.write(f"## {difficulty_tables[difficulty].title}\n")
+                f.write("\n")
+                f.write("|" + "|".join(difficulty_tables[difficulty].fields) + "|\n")
+                f.write(
+                    "|:--:|"
+                    + "|".join(
+                        [
+                            "--"
+                            for _ in range(
+                                len(difficulty_tables[difficulty].fields) - 1
+                            )
+                        ]
+                    )
+                    + "|\n"
+                )
+                for value in difficulty_tables[difficulty].values:
                     f.write("|" + "|".join(value) + "|\n")
 
 
