@@ -12,7 +12,7 @@ class PythonHandler:
 
     def generate_source(self):
         """Generates the source file"""
-        with open(self.question_data.file_path, "a") as f:
+        with open(self.question_data.file_path, "a", encoding="UTF8") as f:
             f.write("        pass\n")
             f.write("\n")
             f.write("\n")
@@ -23,12 +23,16 @@ class PythonHandler:
             )
             f.write("")
 
-        with open(self.question_data.file_path, "r+") as f:
+        with open(self.question_data.file_path, "r+", encoding="UTF8") as f:
             fix_files([f])
 
     def generete_tests(self):
         """Generates the test file"""
-        with open(os.path.join("tests", f"test_{self.question_data.id}.py"), "a") as f:
+        with open(
+            os.path.join("tests", f"test_{self.question_data.id}.py"),
+            "a",
+            encoding="UTF8",
+        ) as f:
             f.write("#!/usr/bin/env python\n")
             f.write("\n")
             f.write("import pytest\n")

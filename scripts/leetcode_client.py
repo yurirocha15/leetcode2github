@@ -81,7 +81,7 @@ class LeetcodeClient:
         new_file_path = os.path.join(*split_path)
         os.rename(data.file_path, new_file_path)
         data.file_path = new_file_path
-        with open(data.file_path, "r") as f:
+        with open(data.file_path, "r", encoding="UTF8") as f:
             text = f.read()
             data.function_name = re.findall(r"    def (.*?)\(self,", text)[0]
 
