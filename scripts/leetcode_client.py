@@ -19,14 +19,17 @@ class LeetcodeClient:
             self.binary_path = os.path.join(
                 "bin", "leetcode-cli", "linux", "leetcode-cli"
             )
+            self.divider = "/"
         elif os_name == "Windows":
             self.binary_path = os.path.join(
                 "bin", "leetcode-cli", "windows", "leetcode-cli.exe"
             )
+            self.divider = "\\"
         elif os_name == "Darwin":
             self.binary_path = os.path.join(
                 "bin", "leetcode-cli", "macos", "leetcode-cli"
             )
+            self.divider = "/"
 
     def login(self):
         """Login to leetcode using the leetcode-cli
@@ -71,11 +74,11 @@ class LeetcodeClient:
                         data.difficulty = words[1]
 
         os.remove("tmp.txt")
-        new_file_path = (
-            data.file_path.replace(".", "-", 1)
-            .replace("/", "/leetcode-", 1)
-            .replace("-", "_")
+        split_path = data.file_path.split(self.divider)
+        split_path[-1] = (
+            ("leetcode_" + split_path[-1]).replace(".", "_", 1).replace("-", "_")
         )
+        new_file_path = os.path.join(*split_path)
         os.rename(data.file_path, new_file_path)
         data.file_path = new_file_path
         with open(data.file_path, "r") as f:
