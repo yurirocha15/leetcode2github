@@ -17,22 +17,27 @@ def get_question(id: int):
     """
     # get question data
     lc = LeetcodeClient()
-    data: QuestionData = lc.get_question_data(id)
+    try:
+        data, is_new = lc.get_question_data(id)
+    except ValueError as e:
+        print(e.args)
+        return
 
-    # generate
-    py_handler = PythonHandler(data)
-    py_handler.generate_source()
-    py_handler.generete_tests()
+    if is_new:
+        # generate
+        py_handler = PythonHandler(data)
+        py_handler.generate_source()
+        py_handler.generete_tests()
 
-    # store data
-    qdb = QuestionDB()
-    qdb.load()
-    qdb.add_question(data)
-    qdb.save()
+        # store data
+        qdb = QuestionDB()
+        qdb.load()
+        qdb.add_question(data)
+        qdb.save()
 
-    # update readme
-    rh = ReadmeHandler()
-    rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
+        # update readme
+        rh = ReadmeHandler()
+        rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
 
 
 def submit_question():

@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple
 
 import browser_cookie3
 import requests
-from question_db import QuestionData
+from question_db import QuestionData, QuestionDB
 
 
 class LeetcodeClient:
@@ -42,7 +42,7 @@ class LeetcodeClient:
         """Logout from leetcode"""
         os.system(self.binary_path + " user -L")
 
-    def get_question_data(self, id: int) -> QuestionData:
+    def get_question_data(self, id: int) -> Tuple[QuestionData, bool]:
         """Gets the data from a question
 
         Args:
@@ -51,6 +51,13 @@ class LeetcodeClient:
         Returns:
             QuestionData: The data needed to generate the question files
         """
+        qdb = QuestionDB()
+        qdb.load()
+        question_data = qdb.get_data()
+        if id in question_data:
+            print("Question already imported")
+            return question_data[id], False
+
         data = QuestionData(id=id, creation_time=time.time())
         os.system(
             self.binary_path + " show " + str(id) + " -gx -l python3 -o ./src > tmp.txt"
@@ -58,6 +65,9 @@ class LeetcodeClient:
         with open("tmp.txt", "r", encoding="UTF8") as f:
             for i, line in enumerate(f):
                 print(line)
+                if "[ERROR]" in line:
+                    raise ValueError(line)
+
                 if i == 0:
                     data.title = " ".join(line.split()[1:])
                 elif "Source Code:" in line:
@@ -87,7 +97,7 @@ class LeetcodeClient:
 
         data.categories = self.get_tags(data.url.split("/")[-3])
 
-        return data
+        return data, True
 
     def get_tags(self, question_name: str) -> List[Dict[str, str]]:
         """Gets the categories of a question
