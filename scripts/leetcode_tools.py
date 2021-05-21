@@ -18,7 +18,7 @@ def get_question(id: int):
     # get question data
     lc = LeetcodeClient()
     try:
-        data, is_new = lc.get_question_data(id)
+        data, is_new = lc.get_question_data(id, verbose=False)
     except ValueError as e:
         print(e.args)
         return
@@ -76,7 +76,7 @@ def leetcode_login():
     os.system(cmd + os.path.join(home_folder, ".lc", "leetcode"))
     print("Make sure to login to leetcode on either chrome or firefox.")
     try:
-        userid, leetcode_session, crsftoken = lc.get_leetcode_cookies()
+        userid, leetcode_session, crsftoken = lc.get_parsed_cookies()
     except ValueError as e:
         print(e.args)
     else:
@@ -91,5 +91,63 @@ def leetcode_login():
         print(f"Logged in as {userid}")
 
 
+def get_all_solutions():
+    """Get all solutions and generate their files"""
+    lc = LeetcodeClient()
+    qdb = QuestionDB()
+    qdb.load()
+    has_next: bool = True
+    last_key: str = ""
+    offset: int = 0
+    imported_cnt = 0
+    try:
+        while has_next:
+            submissions = lc.get_submission_list(last_key, offset)
+            for submission in submissions["submissions_dump"]:
+                if submission["status_display"] == "Accepted":
+                    print("accepted")
+                    q_data = lc.scrap_question_data(
+                        submission["title_slug"], lc.get_cookies()[0]
+                    )
+                    if not qdb.check_if_exists(
+                        q_data["data"]["question"]["questionFrontendId"]
+                    ):
+                        try:
+                            data, is_new = lc.get_question_data(
+                                q_data["data"]["question"]["questionFrontendId"],
+                                verbose=False,
+                            )
+                        except ValueError as e:
+                            print(e.args)
+                            return
+                        if is_new:
+                            # generate
+                            data.creation_time = submission["timestamp"]
+                            py_handler = PythonHandler(data)
+                            py_handler.generate_source()
+                            py_handler.generete_tests()
+
+                            # store data
+                            qdb.add_question(data)
+
+                            imported_cnt += 1
+                            print(
+                                f"""The question "{q_data["data"]["question"]["questionFrontendId"]}|{submission['title']}" was imported"""
+                            )
+
+            has_next = submissions["has_next"]
+            last_key = submissions["last_key"]
+            offset += 20
+    except KeyboardInterrupt:
+        print("Stopping the process...")
+
+    qdb.save()
+    # update readme
+    rh = ReadmeHandler()
+    rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
+
+    print(f"In total, {imported_cnt} questions were imported!")
+
+
 if __name__ == "__main__":
-    clize.run(get_question, submit_question, leetcode_login)
+    clize.run(get_question, submit_question, leetcode_login, get_all_solutions)

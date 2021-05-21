@@ -93,6 +93,7 @@ class PythonHandler:
                 )
 
     def generate_submission_file(self) -> str:
+        """Generates the submission file"""
         lines: List[str] = []
         temporary_file: str = "tmp.py"
         # regex to match main definition
@@ -109,11 +110,18 @@ class PythonHandler:
         return temporary_file
 
     def parse_raw_code(self, raw_code: str) -> List[str]:
+        """Parses the raw code returned by leetcode
+
+        Args:
+            raw_code (str): the raw code returned by leetcode
+
+        Returns:
+            List[str]: a list of lines of code
+        """
         lines = raw_code.split("\n")
         for i, line in enumerate(lines):
             if re.match(r"class\s+Solution\s*:\s*", line):
                 break
 
         lines = lines[i:]
-        print(lines)
         return lines

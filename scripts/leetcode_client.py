@@ -42,11 +42,14 @@ class LeetcodeClient:
         """Logout from leetcode"""
         os.system(self.binary_path + " user -L")
 
-    def get_question_data(self, id: int) -> Tuple[QuestionData, bool]:
+    def get_question_data(
+        self, id: int, verbose: bool = False
+    ) -> Tuple[QuestionData, bool]:
         """Gets the data from a question
 
         Args:
             id (int): the question id
+            verbose (bool): if true print information to the terminal
 
         Returns:
             QuestionData: The data needed to generate the question files
@@ -64,7 +67,8 @@ class LeetcodeClient:
         )
         with open("tmp.txt", "r", encoding="UTF8") as f:
             for i, line in enumerate(f):
-                print(line)
+                if verbose:
+                    print(line)
                 if "[ERROR]" in line:
                     raise ValueError(line)
 
@@ -93,10 +97,7 @@ class LeetcodeClient:
         data.file_path = new_file_path
 
         # get cookies
-        url = "https://leetcode.com/profile/"
-        client = requests.session()
-        r = client.get(url, cookies=browser_cookie3.chrome())
-        cookies = r.request.headers["Cookie"]
+        cookies, _, _ = self.get_cookies()
 
         leetcode_question_data = self.scrap_question_data(
             data.url.split("/")[-3], cookies
@@ -171,7 +172,28 @@ class LeetcodeClient:
             print(e.args)
         return raw_code
 
-    def get_leetcode_cookies(self) -> Tuple[str, str, str]:
+    def get_cookies(self) -> Tuple[str, str, str]:
+        url = "https://leetcode.com/profile/"
+        client = requests.session()
+        try:
+            browsers = (browser_cookie3.chrome(), browser_cookie3.firefox())
+        except browser_cookie3.BrowserCookieError as e:
+            print(e.args)
+
+        for browser in browsers:
+            try:
+                r = client.get(url, cookies=browser)
+                cookies = r.request.headers["Cookie"]
+                csrftoken = client.cookies["csrftoken"]
+                text = r.text
+            except:
+                continue
+            if csrftoken:
+                break
+
+        return cookies, csrftoken, text
+
+    def get_parsed_cookies(self) -> Tuple[str, str, str]:
         """Gets the cookies from the browser
 
         Raises:
@@ -180,29 +202,11 @@ class LeetcodeClient:
         Returns:
             Tuple[str, str, str]: the username and the cookies
         """
-        url = "https://leetcode.com/profile/"
-        leetcode_session: str = ""
-        csrftoken: str = ""
-        username: str = ""
-        try:
-            browsers = (browser_cookie3.chrome(), browser_cookie3.firefox())
-        except browser_cookie3.BrowserCookieError as e:
-            print(e.args)
-
-        for browser in browsers:
-            try:
-                client = requests.session()
-                r = client.get(url, cookies=browser)
-                cookies = r.request.headers["Cookie"]
-                csrftoken = client.cookies["csrftoken"]
-            except:
-                continue
-            leetcode_session = re.findall(
-                r"LEETCODE_SESSION=(.*?);|$", cookies, flags=re.DOTALL
-            )[0]
-            username = re.findall(r"username: '(.*?)',", r.text, flags=re.DOTALL)[0]
-            if leetcode_session and csrftoken and username:
-                break
+        cookies, csrftoken, text = self.get_cookies()
+        leetcode_session = re.findall(
+            r"LEETCODE_SESSION=(.*?);|$", cookies, flags=re.DOTALL
+        )[0]
+        username = re.findall(r"username: '(.*?)',", text, flags=re.DOTALL)[0]
 
         if not leetcode_session or not csrftoken or not username:
             raise ValueError(
@@ -219,6 +223,32 @@ class LeetcodeClient:
             file (str): the path to the file which will be submited
         """
         os.system(self.binary_path + " submit " + file)
+
+    def get_submission_list(
+        self, last_key: str = "", offset: int = 0
+    ) -> Dict[str, Any]:
+        cookies, _, _ = self.get_cookies()
+        url = (
+            f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey="
+            + last_key
+        )
+
+        payload = {}
+        headers = {
+            "authority": "leetcode.com",
+            "pragma": "no-cache",
+            "cache-control": "no-cache",
+            "accept": "application/json",
+            "dnt": "1",
+            "sec-ch-ua-mobile": "?0",
+            "origin": "https://leetcode.com",
+            "accept-language": "en-US,en;q=0.9",
+            "cookie": cookies,
+        }
+
+        response = requests.request("GET", url, headers=headers, data=payload)
+
+        return json.loads(response.text)
 
 
 if __name__ == "__main__":
