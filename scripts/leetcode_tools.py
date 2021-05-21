@@ -47,22 +47,16 @@ def submit_question(id: int):
     problems = qdb.get_data()
     # create submit file
     if id in problems:
-        lines = []
-        with open(problems[id].file_path, "r", encoding="UTF8") as f:
-            for line in f:
-                if 'if __name__ == "__main__":' in line:
-                    break
-                lines.append(line)
-
-        with open("tmp.py", "w", encoding="UTF8") as f:
-            f.writelines(lines)
+        py_handler = PythonHandler(problems[id])
+        file_to_submit = py_handler.generate_submission_file()
 
         lc = LeetcodeClient()
         try:
-            lc.submit_question("tmp.py")
+            lc.submit_question(file_to_submit)
         except Exception as e:
-            pass
-        os.remove("tmp.py")
+            print(e.args)
+
+        os.remove(file_to_submit)
 
     else:
         print(f"Could not find the question with id {id}")

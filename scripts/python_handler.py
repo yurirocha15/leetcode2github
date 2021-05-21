@@ -1,4 +1,6 @@
 import os
+import re
+from typing import List
 
 from autoimport import fix_files
 from question_db import QuestionData
@@ -77,3 +79,19 @@ class PythonHandler:
                     )
                     + "\n"
                 )
+
+    def generate_submission_file(self) -> str:
+        lines: List[str] = []
+        temporary_file: str = "tmp.py"
+        # regex to match main definition
+        match = r"""if\s+__name__\s+==\s+('|")__main__('|")\s*:\s*"""
+        with open(self.question_data.file_path, "r", encoding="UTF8") as f:
+            for line in f:
+                if re.match(match, line):
+                    break
+                lines.append(line)
+
+        with open(temporary_file, "w", encoding="UTF8") as f:
+            f.writelines(lines)
+
+        return temporary_file

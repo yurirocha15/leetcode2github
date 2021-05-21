@@ -179,6 +179,11 @@ class LeetcodeClient:
         return username, leetcode_session, csrftoken
 
     def submit_question(self, file: str):
+        """Submit question to Leetcode
+
+        Args:
+            file (str): the path to the file which will be submited
+        """
         os.system(self.binary_path + " submit " + file)
 
 
