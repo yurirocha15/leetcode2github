@@ -14,8 +14,20 @@ class PythonHandler:
 
     def generate_source(self):
         """Generates the source file"""
-        with open(self.question_data.file_path, "a", encoding="UTF8") as f:
-            f.write("        pass\n")
+        lines: List[str] = []
+        code_lines = self.parse_raw_code(self.question_data.raw_code)
+        with open(self.question_data.file_path, "r", encoding="UTF8") as f:
+            for line in f:
+                if re.match(r"class\s+Solution\s*:\s*(\r\n|\r|\n)", line):
+                    break
+                lines.append(line)
+            if code_lines:
+                lines.extend(map(lambda l: l + "\n", code_lines))
+            else:
+                lines.append("        pass\n")
+
+        with open(self.question_data.file_path, "w", encoding="UTF8") as f:
+            f.writelines(lines)
 
         # fix imports
         with open(self.question_data.file_path, "r+", encoding="UTF8") as f:
@@ -95,3 +107,13 @@ class PythonHandler:
             f.writelines(lines)
 
         return temporary_file
+
+    def parse_raw_code(self, raw_code: str) -> List[str]:
+        lines = raw_code.split("\n")
+        for i, line in enumerate(lines):
+            if re.match(r"class\s+Solution\s*:\s*", line):
+                break
+
+        lines = lines[i:]
+        print(lines)
+        return lines

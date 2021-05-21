@@ -15,6 +15,7 @@ class QuestionData:
     difficulty: str = ""
     function_name: str = ""
     file_path: str = ""
+    raw_code: str = ""
     inputs: List[str] = field(default_factory=list)
     outputs: List[str] = field(default_factory=list)
     categories: List[Dict[str, str]] = field(default_factory=list)
