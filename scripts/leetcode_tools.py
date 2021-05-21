@@ -42,15 +42,13 @@ def get_question(id: int):
 
 def submit_question(id: int):
     # submissions
-    source_file = ""
-    for f in os.listdir("src"):
-        if f"leetcode_{id}" in f:
-            source_file = os.path.join("src", f)
-            break
+    qdb = QuestionDB()
+    qdb.load()
+    problems = qdb.get_data()
     # create submit file
-    if source_file:
+    if id in problems:
         lines = []
-        with open(source_file, "r", encoding="UTF8") as f:
+        with open(problems[id].file_path, "r", encoding="UTF8") as f:
             for line in f:
                 if 'if __name__ == "__main__":' in line:
                     break
