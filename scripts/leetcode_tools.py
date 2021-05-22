@@ -120,9 +120,7 @@ def get_all_submissions():
                     and not qdb.check_if_exists(qid)
                 ):
                     if qid == -1:
-                        q_data = lc.scrap_question_data(
-                            submission["title_slug"], lc.get_cookies()[0]
-                        )
+                        q_data = lc.scrap_question_data(submission["title_slug"], lc.get_cookies()[0])
                         qid = q_data["data"]["question"]["questionFrontendId"]
                         slug_to_id_map[submission["title_slug"]] = qid
                     if not qdb.check_if_exists(qid):

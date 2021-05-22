@@ -16,19 +16,13 @@ class LeetcodeClient:
     def __init__(self):
         os_name = platform.system()
         if os_name == "Linux":
-            self.binary_path = os.path.join(
-                "bin", "leetcode-cli", "linux", "leetcode-cli"
-            )
+            self.binary_path = os.path.join("bin", "leetcode-cli", "linux", "leetcode-cli")
             self.divider = "/"
         elif os_name == "Windows":
-            self.binary_path = os.path.join(
-                "bin", "leetcode-cli", "windows", "leetcode-cli.exe"
-            )
+            self.binary_path = os.path.join("bin", "leetcode-cli", "windows", "leetcode-cli.exe")
             self.divider = "\\"
         elif os_name == "Darwin":
-            self.binary_path = os.path.join(
-                "bin", "leetcode-cli", "macos", "leetcode-cli"
-            )
+            self.binary_path = os.path.join("bin", "leetcode-cli", "macos", "leetcode-cli")
             self.divider = "/"
 
     def login(self):
@@ -42,9 +36,7 @@ class LeetcodeClient:
         """Logout from leetcode"""
         os.system(self.binary_path + " user -L")
 
-    def get_question_data(
-        self, id: int, verbose: bool = False
-    ) -> Tuple[QuestionData, bool]:
+    def get_question_data(self, id: int, verbose: bool = False) -> Tuple[QuestionData, bool]:
         """Gets the data from a question
 
         Args:
@@ -62,12 +54,7 @@ class LeetcodeClient:
             return question_data[id], False
 
         data = QuestionData(id=id, creation_time=time.time())
-        os.system(
-            self.binary_path
-            + " show "
-            + str(id)
-            + f" -gx -l python3 -o ./src > tmp{id}.txt"
-        )
+        os.system(self.binary_path + " show " + str(id) + f" -gx -l python3 -o ./src > tmp{id}.txt")
         with open(f"tmp{id}.txt", "r", encoding="UTF8") as f:
             for i, line in enumerate(f):
                 if verbose:
@@ -92,9 +79,7 @@ class LeetcodeClient:
 
         os.remove(f"tmp{id}.txt")
         split_path = data.file_path.split(self.divider)
-        split_path[-1] = (
-            ("leetcode_" + split_path[-1]).replace(".", "_", 1).replace("-", "_")
-        )
+        split_path[-1] = ("leetcode_" + split_path[-1]).replace(".", "_", 1).replace("-", "_")
         new_file_path = os.path.join(*split_path)
         os.rename(data.file_path, new_file_path)
         data.file_path = new_file_path
@@ -102,9 +87,7 @@ class LeetcodeClient:
         # get cookies
         cookies, _, _ = self.get_cookies()
 
-        leetcode_question_data = self.scrap_question_data(
-            data.url.split("/")[-3], cookies
-        )
+        leetcode_question_data = self.scrap_question_data(data.url.split("/")[-3], cookies)
         data.categories = leetcode_question_data["data"]["question"]["topicTags"]
         data.raw_code = self.get_latest_submission(
             leetcode_question_data["data"]["question"]["questionId"], cookies
@@ -118,9 +101,7 @@ class LeetcodeClient:
                 data.function_name = re.findall(r"    def (.*?)\(self,", text)[0]
         return data, True
 
-    def scrap_question_data(
-        self, question_name: str, cookies: str
-    ) -> List[Dict[str, Any]]:
+    def scrap_question_data(self, question_name: str, cookies: str) -> List[Dict[str, Any]]:
         """Query a question information
 
         Args:
@@ -206,9 +187,7 @@ class LeetcodeClient:
             Tuple[str, str, str]: the username and the cookies
         """
         cookies, csrftoken, text = self.get_cookies()
-        leetcode_session = re.findall(
-            r"LEETCODE_SESSION=(.*?);|$", cookies, flags=re.DOTALL
-        )[0]
+        leetcode_session = re.findall(r"LEETCODE_SESSION=(.*?);|$", cookies, flags=re.DOTALL)[0]
         username = re.findall(r"username: '(.*?)',", text, flags=re.DOTALL)[0]
 
         if not leetcode_session or not csrftoken or not username:
@@ -227,14 +206,9 @@ class LeetcodeClient:
         """
         os.system(self.binary_path + " submit " + file)
 
-    def get_submission_list(
-        self, last_key: str = "", offset: int = 0
-    ) -> Dict[str, Any]:
+    def get_submission_list(self, last_key: str = "", offset: int = 0) -> Dict[str, Any]:
         cookies, _, _ = self.get_cookies()
-        url = (
-            f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey="
-            + last_key
-        )
+        url = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey=" + last_key
 
         payload = {}
         headers = {

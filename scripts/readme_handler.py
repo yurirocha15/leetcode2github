@@ -105,11 +105,7 @@ class ReadmeHandler:
             f.write(f"# <a name='summary'></a>{main_table.title}\n")
             f.write("\n")
             f.write("|" + "|".join(main_table.fields) + "|\n")
-            f.write(
-                "|:--:|"
-                + "|".join(["--" for _ in range(len(main_table.fields) - 1)])
-                + "|\n"
-            )
+            f.write("|:--:|" + "|".join(["--" for _ in range(len(main_table.fields) - 1)]) + "|\n")
 
             for value in main_table.values:
                 f.write("|" + "|".join(value) + "|\n")
@@ -122,14 +118,7 @@ class ReadmeHandler:
                 f.write("|" + "|".join(difficulty_tables[difficulty].fields) + "|\n")
                 f.write(
                     "|:--:|"
-                    + "|".join(
-                        [
-                            "--"
-                            for _ in range(
-                                len(difficulty_tables[difficulty].fields) - 1
-                            )
-                        ]
-                    )
+                    + "|".join(["--" for _ in range(len(difficulty_tables[difficulty].fields) - 1)])
                     + "|\n"
                 )
                 for value in difficulty_tables[difficulty].values:
@@ -141,11 +130,7 @@ class ReadmeHandler:
                 f.write(f"## {table[1].title}\n")
                 f.write("\n")
                 f.write("|" + "|".join(table[1].fields) + "|\n")
-                f.write(
-                    "|:--:|"
-                    + "|".join(["--" for _ in range(len(table[1].fields) - 1)])
-                    + "|\n"
-                )
+                f.write("|:--:|" + "|".join(["--" for _ in range(len(table[1].fields) - 1)]) + "|\n")
                 for value in table[1].values:
                     f.write("|" + "|".join(value) + "|\n")
 

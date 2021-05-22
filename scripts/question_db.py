@@ -65,9 +65,7 @@ class QuestionDB:
         Returns:
             List[QuestionData]: [description]
         """
-        return sorted(
-            self.question_data_dict.values(), key=operator.attrgetter(sort_by)
-        )
+        return sorted(self.question_data_dict.values(), key=operator.attrgetter(sort_by))
 
     def check_if_exists(self, id: int) -> bool:
         """Checks if a question exists in the database

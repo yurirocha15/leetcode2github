@@ -43,20 +43,16 @@ class PythonHandler:
             f.write('if __name__ == "__main__":\n')
             f.write("    import pytest\n")
             f.write("    import os\n")
-            f.write(
-                f"    pytest.main([os.path.join('tests', 'test_{self.question_data.id}.py')])\n"
-            )
+            f.write(f"    pytest.main([os.path.join('tests', 'test_{self.question_data.id}.py')])\n")
             f.write("")
 
     def generete_tests(self):
         """Generates the test file"""
         self.question_data.inputs = [
-            s.replace("true", "True").replace("false", "False")
-            for s in self.question_data.inputs
+            s.replace("true", "True").replace("false", "False") for s in self.question_data.inputs
         ]
         self.question_data.outputs = [
-            s.replace("true", "True").replace("false", "False")
-            for s in self.question_data.outputs
+            s.replace("true", "True").replace("false", "False") for s in self.question_data.outputs
         ]
         with open(
             os.path.join("tests", f"test_{self.question_data.id}.py"),
@@ -75,9 +71,7 @@ class PythonHandler:
             f.write("\n")
             f.write('@pytest.fixture(scope="session")\n')
             f.write(f"def init_variables_{self.question_data.id}():\n")
-            f.write(
-                f"    from src.{self.question_data.file_path[4:-3]} import Solution\n"
-            )
+            f.write(f"    from src.{self.question_data.file_path[4:-3]} import Solution\n")
             f.write(f"    solution = Solution()\n")
             f.write("\n")
             f.write(f"    def _init_variables_{self.question_data.id}():\n")
@@ -88,9 +82,7 @@ class PythonHandler:
             f.write(f"class TestClass{self.question_data.id}:")
             for i in range(len(self.question_data.inputs)):
                 f.write("\n")
-                f.write(
-                    f"    def test_solution_{i}(self, init_variables_{self.question_data.id}):\n"
-                )
+                f.write(f"    def test_solution_{i}(self, init_variables_{self.question_data.id}):\n")
                 f.write(
                     f"        assert"
                     + (" not" if self.question_data.outputs[i] == "False" else "")
