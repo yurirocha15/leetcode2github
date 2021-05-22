@@ -31,7 +31,10 @@ class PythonHandler:
 
         # fix imports
         with open(self.question_data.file_path, "r+", encoding="UTF8") as f:
-            fix_files([f])
+            try:
+                fix_files([f])
+            except Exception as e:
+                print(e.args)
 
         # add main
         with open(self.question_data.file_path, "a", encoding="UTF8") as f:
@@ -47,6 +50,14 @@ class PythonHandler:
 
     def generete_tests(self):
         """Generates the test file"""
+        self.question_data.inputs = [
+            s.replace("true", "True").replace("false", "False")
+            for s in self.question_data.inputs
+        ]
+        self.question_data.outputs = [
+            s.replace("true", "True").replace("false", "False")
+            for s in self.question_data.outputs
+        ]
         with open(
             os.path.join("tests", f"test_{self.question_data.id}.py"),
             "a",
@@ -82,11 +93,11 @@ class PythonHandler:
                 )
                 f.write(
                     f"        assert"
-                    + (" not" if self.question_data.outputs[i] == "false" else "")
+                    + (" not" if self.question_data.outputs[i] == "False" else "")
                     + f" init_variables_{self.question_data.id}().{self.question_data.function_name}({self.question_data.inputs[i]})"
                     + (
                         f" == {self.question_data.outputs[i]}"
-                        if self.question_data.outputs[i] not in ["true", "false"]
+                        if self.question_data.outputs[i] not in ["True", "False"]
                         else ""
                     )
                     + "\n"

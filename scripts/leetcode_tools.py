@@ -1,6 +1,7 @@
 import os
 import platform
 from pathlib import Path
+from typing import Dict
 
 import clize
 from leetcode_client import LeetcodeClient
@@ -100,21 +101,27 @@ def get_all_solutions():
     last_key: str = ""
     offset: int = 0
     imported_cnt = 0
+    slug_to_id_map: Dict[str, int] = {}
     try:
         while has_next:
             submissions = lc.get_submission_list(last_key, offset)
             for submission in submissions["submissions_dump"]:
-                if submission["status_display"] == "Accepted":
-                    print("accepted")
-                    q_data = lc.scrap_question_data(
-                        submission["title_slug"], lc.get_cookies()[0]
-                    )
-                    if not qdb.check_if_exists(
-                        q_data["data"]["question"]["questionFrontendId"]
-                    ):
+                qid = -1
+                if submission["title_slug"] in slug_to_id_map:
+                    qid = slug_to_id_map[submission["title_slug"]]
+                if submission[
+                    "status_display"
+                ] == "Accepted" and not qdb.check_if_exists(qid):
+                    if qid == -1:
+                        q_data = lc.scrap_question_data(
+                            submission["title_slug"], lc.get_cookies()[0]
+                        )
+                        qid = q_data["data"]["question"]["questionFrontendId"]
+                        slug_to_id_map[submission["title_slug"]] = qid
+                    if not qdb.check_if_exists(qid):
                         try:
                             data, is_new = lc.get_question_data(
-                                q_data["data"]["question"]["questionFrontendId"],
+                                qid,
                                 verbose=False,
                             )
                         except ValueError as e:
@@ -132,14 +139,17 @@ def get_all_solutions():
 
                             imported_cnt += 1
                             print(
-                                f"""The question "{q_data["data"]["question"]["questionFrontendId"]}|{submission['title']}" was imported"""
+                                f"""The question "{qid}|{submission['title']}" was imported"""
                             )
 
             has_next = submissions["has_next"]
             last_key = submissions["last_key"]
             offset += 20
+            qdb.save()
     except KeyboardInterrupt:
         print("Stopping the process...")
+    except Exception as e:
+        print(e.args)
 
     qdb.save()
     # update readme
