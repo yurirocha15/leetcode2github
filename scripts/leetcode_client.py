@@ -63,9 +63,12 @@ class LeetcodeClient:
 
         data = QuestionData(id=id, creation_time=time.time())
         os.system(
-            self.binary_path + " show " + str(id) + " -gx -l python3 -o ./src > tmp.txt"
+            self.binary_path
+            + " show "
+            + str(id)
+            + f" -gx -l python3 -o ./src > tmp{id}.txt"
         )
-        with open("tmp.txt", "r", encoding="UTF8") as f:
+        with open(f"tmp{id}.txt", "r", encoding="UTF8") as f:
             for i, line in enumerate(f):
                 if verbose:
                     print(line)
@@ -87,7 +90,7 @@ class LeetcodeClient:
                     if words[1] in ["Easy", "Medium", "Hard"]:
                         data.difficulty = words[1]
 
-        os.remove("tmp.txt")
+        os.remove(f"tmp{id}.txt")
         split_path = data.file_path.split(self.divider)
         split_path[-1] = (
             ("leetcode_" + split_path[-1]).replace(".", "_", 1).replace("-", "_")

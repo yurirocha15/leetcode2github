@@ -62,7 +62,6 @@ class ReadmeHandler:
                     ]
                 )
             categories_str = categories_str[:-2]
-
             difficulty_tables[question.difficulty].values.append(
                 [
                     str(len(difficulty_tables[question.difficulty].values) + 1),
