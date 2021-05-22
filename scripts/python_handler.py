@@ -22,7 +22,7 @@ class PythonHandler:
                     break
                 lines.append(line)
             if code_lines:
-                lines.extend(map(lambda l: l + "\n", code_lines))
+                lines.extend([l + "\n" for l in code_lines])
             else:
                 lines.append("        pass\n")
 
