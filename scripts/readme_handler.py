@@ -97,7 +97,13 @@ class ReadmeHandler:
             difficulty_tables (Dict[str, ReadmeTable]): a dictionary with tables separated by difficulty
         """
         with open(self.readme_file, "w", encoding="UTF8") as f:
-            f.write(f"# {main_table.title}\n")
+
+            f.write(f"# Table of Contents\n")
+            f.write(f"[{main_table.title}](#summary)\n")
+            f.write(f"[Difficulty](#difficulty)\n")
+            f.write(f"[Categories](#categories)\n")
+
+            f.write(f"# <a name='summary'></a>{main_table.title}\n")
             f.write("\n")
             f.write("|" + "|".join(main_table.fields) + "|\n")
             f.write(
@@ -110,21 +116,7 @@ class ReadmeHandler:
                 f.write("|" + "|".join(value) + "|\n")
 
             f.write("\n")
-            f.write("# Categories\n")
-            for table in sorted(category_tables.items()):
-                f.write(f"## {table[1].title}\n")
-                f.write("\n")
-                f.write("|" + "|".join(table[1].fields) + "|\n")
-                f.write(
-                    "|:--:|"
-                    + "|".join(["--" for _ in range(len(table[1].fields) - 1)])
-                    + "|\n"
-                )
-                for value in table[1].values:
-                    f.write("|" + "|".join(value) + "|\n")
-
-            f.write("\n")
-            f.write("# Difficulties\n")
+            f.write("# <a name='difficulty'></a>Difficulty\n")
             for difficulty in ("Easy", "Medium", "Hard"):
                 f.write(f"## {difficulty_tables[difficulty].title}\n")
                 f.write("\n")
@@ -142,6 +134,20 @@ class ReadmeHandler:
                     + "|\n"
                 )
                 for value in difficulty_tables[difficulty].values:
+                    f.write("|" + "|".join(value) + "|\n")
+
+            f.write("\n")
+            f.write("# <a name='categories'></a>Categories\n")
+            for table in sorted(category_tables.items()):
+                f.write(f"## {table[1].title}\n")
+                f.write("\n")
+                f.write("|" + "|".join(table[1].fields) + "|\n")
+                f.write(
+                    "|:--:|"
+                    + "|".join(["--" for _ in range(len(table[1].fields) - 1)])
+                    + "|\n"
+                )
+                for value in table[1].values:
                     f.write("|" + "|".join(value) + "|\n")
 
 

@@ -2,6 +2,10 @@ format:
 	black .
 	isort .
 
+get-all-submissions:
+	python scripts/leetcode_tools.py get-all-submissions
+	make format
+
 get-question:
 	python scripts/leetcode_tools.py get-question $(ID)
 	make format

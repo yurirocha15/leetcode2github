@@ -92,7 +92,7 @@ def leetcode_login():
         print(f"Logged in as {userid}")
 
 
-def get_all_solutions():
+def get_all_submissions():
     """Get all solutions and generate their files"""
     lc = LeetcodeClient()
     qdb = QuestionDB()
@@ -160,4 +160,4 @@ def get_all_solutions():
 
 
 if __name__ == "__main__":
-    clize.run(get_question, submit_question, leetcode_login, get_all_solutions)
+    clize.run(get_question, submit_question, leetcode_login, get_all_submissions)
