@@ -52,3 +52,11 @@ To download the latest accepted submission for each solved problem:
 ```shell
 $ make get-all-submissions
 ```
+
+### Removing a Question
+
+To remove a downloaded problem (delete files and remove from readme):
+
+```shell
+$ make remove-question ID=<question_id>
+```
