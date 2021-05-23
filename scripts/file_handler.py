@@ -1,3 +1,4 @@
+import signal
 from abc import ABC, abstractmethod
 from typing import Dict, Type, TypeVar
 
@@ -40,6 +41,7 @@ class FileHandler(ABC):
 def generate_files(
     args: Dict[int, QuestionData], qid: int, lc: LeetcodeClient, timestamp: float, language: str
 ):
+    s = signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         data, is_new = lc.get_question_data(
             qid,
@@ -48,7 +50,9 @@ def generate_files(
         )
     except ValueError as e:
         print(e.args)
+        signal.signal(signal.SIGINT, s)
         return
+
     if is_new and data.inputs and data.outputs:
         # generate
         data.creation_time = timestamp
@@ -58,6 +62,7 @@ def generate_files(
 
         args[qid] = data
         print(f"""The question "{qid}|{data.title}" was imported""")
+    signal.signal(signal.SIGINT, s)
 
 
 # child classes (need to be imported in order to be instantiated)

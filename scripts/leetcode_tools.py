@@ -1,10 +1,12 @@
 import os
 import platform
+import signal
 import time
 from multiprocessing import Manager, Process
+from multiprocessing.managers import SyncManager
 from pathlib import Path
 from re import T
-from typing import Any, Dict
+from typing import Any, Dict, final
 
 import clize
 from file_handler import FileHandler, generate_files
@@ -100,12 +102,18 @@ def get_all_submissions():
     offset: int = 0
     imported_cnt = 0
     slug_to_id_map: Dict[str, int] = {}
+
+    # initializer for SyncManager
+    def mgr_init():
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+
     try:
         while has_next:
-            submissions = lc.get_submission_list(last_key, offset)
             jobs = []
-            manager = Manager()
+            manager = SyncManager()
+            manager.start(mgr_init)
             args = manager.dict()
+            submissions = lc.get_submission_list(last_key, offset)
             for submission in submissions["submissions_dump"]:
                 qid = -1
                 if submission["title_slug"] in slug_to_id_map:
@@ -149,8 +157,15 @@ def get_all_submissions():
             qdb.save()
     except KeyboardInterrupt:
         print("Stopping the process...")
+        for p in jobs:
+            p.join()
+        for data in args.values():
+            qdb.add_question(data)
+            imported_cnt += 1
     except Exception as e:
         print(e.args)
+    finally:
+        manager.shutdown()
 
     qdb.save()
     # update readme
