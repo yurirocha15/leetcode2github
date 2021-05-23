@@ -62,6 +62,8 @@ class ReadmeHandler:
                     ]
                 )
             categories_str = categories_str[:-2]
+            if not question.difficulty:
+                question.difficulty = "Easy"
             difficulty_tables[question.difficulty].values.append(
                 [
                     str(len(difficulty_tables[question.difficulty].values) + 1),

@@ -1,6 +1,6 @@
 format:
-	black --line-length 104 .
 	isort .
+	black --line-length 104 .
 
 get-all-submissions:
 	python scripts/leetcode_tools.py get-all-submissions

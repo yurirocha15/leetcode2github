@@ -36,7 +36,9 @@ class LeetcodeClient:
         """Logout from leetcode"""
         os.system(self.binary_path + " user -L")
 
-    def get_question_data(self, id: int, verbose: bool = False) -> Tuple[QuestionData, bool]:
+    def get_question_data(
+        self, id: int, language: str, verbose: bool = False
+    ) -> Tuple[QuestionData, bool]:
         """Gets the data from a question
 
         Args:
@@ -54,7 +56,7 @@ class LeetcodeClient:
             return question_data[id], False
 
         data = QuestionData(id=id, creation_time=time.time())
-        os.system(self.binary_path + " show " + str(id) + f" -gx -l python3 -o ./src > tmp{id}.txt")
+        os.system(self.binary_path + f" show {id} -gx -l {language} -o ./src > tmp{id}.txt")
         with open(f"tmp{id}.txt", "r", encoding="UTF8") as f:
             for i, line in enumerate(f):
                 if verbose:
@@ -90,7 +92,7 @@ class LeetcodeClient:
         leetcode_question_data = self.scrap_question_data(data.url.split("/")[-3], cookies)
         data.categories = leetcode_question_data["data"]["question"]["topicTags"]
         data.raw_code = self.get_latest_submission(
-            leetcode_question_data["data"]["question"]["questionId"], cookies
+            leetcode_question_data["data"]["question"]["questionId"], cookies, language
         )
         tmp_function_name = re.findall(r"    def (.*?)\(self,", data.raw_code)
         if tmp_function_name:
@@ -133,8 +135,8 @@ class LeetcodeClient:
         response = requests.request("POST", url, headers=headers, data=payload)
         return json.loads(response.text)
 
-    def get_latest_submission(self, qid: str, cookies: str) -> str:
-        url = f"https://leetcode.com/submissions/latest/?qid=" + qid + "&lang=python3"
+    def get_latest_submission(self, qid: str, cookies: str, language: str) -> str:
+        url = f"https://leetcode.com/submissions/latest/?qid={qid}&lang={language}"
 
         payload = {}
         headers = {
@@ -208,7 +210,7 @@ class LeetcodeClient:
 
     def get_submission_list(self, last_key: str = "", offset: int = 0) -> Dict[str, Any]:
         cookies, _, _ = self.get_cookies()
-        url = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey=" + last_key
+        url = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey={last_key}"
 
         payload = {}
         headers = {

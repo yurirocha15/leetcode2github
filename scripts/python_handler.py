@@ -3,13 +3,16 @@ import re
 from typing import List
 
 from autoimport import fix_files
+from file_handler import FileHandler
 from question_db import QuestionData
 
 
-class PythonHandler:
+class PythonHandler(FileHandler):
     """Generates the source and test python files"""
 
-    def __init__(self, question_data: QuestionData):
+    languages = ["python", "python3"]
+
+    def set_question_data(self, question_data: QuestionData):
         self.question_data = question_data
 
     def generate_source(self):

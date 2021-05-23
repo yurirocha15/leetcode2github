@@ -1,15 +1,19 @@
 import os
 import platform
+import time
 from multiprocessing import Manager, Process
 from pathlib import Path
 from re import T
 from typing import Any, Dict
 
 import clize
+from file_handler import FileHandler, generate_files
 from leetcode_client import LeetcodeClient
-from python_handler import PythonHandler
 from question_db import QuestionData, QuestionDB
 from readme_handler import ReadmeHandler
+
+# TODO: change this to a config file
+_LANGUAGE = "python3"
 
 
 def get_question(id: int):
@@ -20,22 +24,14 @@ def get_question(id: int):
     """
     # get question data
     lc = LeetcodeClient()
-    try:
-        data, is_new = lc.get_question_data(id, verbose=False)
-    except ValueError as e:
-        print(e.args)
-        return
+    args: Dict[int, QuestionData] = {}
+    generate_files(args, id, lc, time.time(), _LANGUAGE)
 
-    if is_new:
-        # generate
-        py_handler = PythonHandler(data)
-        py_handler.generate_source()
-        py_handler.generete_tests()
-
+    if id in args:
         # store data
         qdb = QuestionDB()
         qdb.load()
-        qdb.add_question(data)
+        qdb.add_question(args[id])
         qdb.save()
 
         # update readme
@@ -50,8 +46,8 @@ def submit_question(id: int):
     problems = qdb.get_data()
     # create submit file
     if id in problems:
-        py_handler = PythonHandler(problems[id])
-        file_to_submit = py_handler.generate_submission_file()
+        file_handler = FileHandler(_LANGUAGE, problems[id])
+        file_to_submit = file_handler.generate_submission_file()
 
         lc = LeetcodeClient()
         try:
@@ -116,7 +112,7 @@ def get_all_submissions():
                     qid = slug_to_id_map[submission["title_slug"]]
                 if (
                     submission["status_display"] == "Accepted"
-                    and submission["lang"] == "python3"
+                    and submission["lang"] == _LANGUAGE
                     and not qdb.check_if_exists(qid)
                 ):
                     if qid == -1:
@@ -134,8 +130,7 @@ def get_all_submissions():
                                 qid,
                                 lc,
                                 submission["timestamp"],
-                                submission["title"],
-                                qdb,
+                                _LANGUAGE,
                             ),
                         )
                         jobs.append(p)
@@ -163,33 +158,6 @@ def get_all_submissions():
     rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
 
     print(f"In total, {imported_cnt} questions were imported!")
-
-
-def generate_files(
-    args: Dict[int, Dict[str, Any]],
-    qid: int,
-    lc: LeetcodeClient,
-    timestamp: float,
-    title: str,
-    qdb: QuestionDB,
-):
-    try:
-        data, is_new = lc.get_question_data(
-            qid,
-            verbose=False,
-        )
-    except ValueError as e:
-        print(e.args)
-        return
-    if is_new and data.inputs and data.outputs:
-        # generate
-        data.creation_time = timestamp
-        py_handler = PythonHandler(data)
-        py_handler.generate_source()
-        py_handler.generete_tests()
-
-        args[qid] = data
-        print(f"""The question "{qid}|{title}" was imported""")
 
 
 if __name__ == "__main__":
