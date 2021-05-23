@@ -5,6 +5,10 @@ Using a single command, one can get the question information, generate the pytho
 
 This repository uses [leetcode-cli](https://github.com/skygragon/leetcode-cli) to get the question information. Big thanks to the leetcode-cli owners for providing such tool.
 
+## Question Solutions
+
+Please check the [Solution Summary](QUESTIONS.md).
+
 ## Usage
 
 ### Installation
@@ -41,6 +45,10 @@ To submit a question to leetcode:
 $ make submit-question ID=<question_id>
 ```
 
-## Question Solutions
+### Dowloading All Submissions
 
-Please check the [Solution Summary](QUESTIONS.md).
+To download the latest accepted submission for each solved problem:
+
+```shell
+$ make get-all-submissions
+```

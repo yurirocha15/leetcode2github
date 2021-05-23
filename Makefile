@@ -1,6 +1,10 @@
 format:
-	black .
 	isort .
+	black --line-length 104 .
+
+get-all-submissions:
+	python scripts/leetcode_tools.py get-all-submissions
+	make format
 
 get-question:
 	python scripts/leetcode_tools.py get-question $(ID)

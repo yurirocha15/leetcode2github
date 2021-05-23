@@ -15,6 +15,7 @@ class QuestionData:
     difficulty: str = ""
     function_name: str = ""
     file_path: str = ""
+    raw_code: str = ""
     inputs: List[str] = field(default_factory=list)
     outputs: List[str] = field(default_factory=list)
     categories: List[Dict[str, str]] = field(default_factory=list)
@@ -64,6 +65,15 @@ class QuestionDB:
         Returns:
             List[QuestionData]: [description]
         """
-        return sorted(
-            self.question_data_dict.values(), key=operator.attrgetter(sort_by)
-        )
+        return sorted(self.question_data_dict.values(), key=operator.attrgetter(sort_by))
+
+    def check_if_exists(self, id: int) -> bool:
+        """Checks if a question exists in the database
+
+        Args:
+            id (int): the question id
+
+        Returns:
+            bool: true if the question exists in the database
+        """
+        return id in self.question_data_dict
