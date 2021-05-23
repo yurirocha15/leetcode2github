@@ -15,8 +15,12 @@ class PythonHandler(FileHandler):
     def set_question_data(self, question_data: QuestionData):
         self.question_data = question_data
 
-    def generate_source(self):
-        """Generates the source file"""
+    def generate_source(self) -> str:
+        """Generates the source file
+
+        Returns:
+            str: the path to the test file
+        """
         lines: List[str] = []
         code_lines = self.parse_raw_code(self.question_data.raw_code)
         with open(self.question_data.file_path, "r", encoding="UTF8") as f:
@@ -49,8 +53,14 @@ class PythonHandler(FileHandler):
             f.write(f"    pytest.main([os.path.join('tests', 'test_{self.question_data.id}.py')])\n")
             f.write("")
 
-    def generete_tests(self):
-        """Generates the test file"""
+        return self.question_data.file_path
+
+    def generete_tests(self) -> str:
+        """Generates the test file
+
+        Returns:
+            str: the path to the test file
+        """
         self.question_data.inputs = [
             s.replace("true", "True").replace("false", "False") for s in self.question_data.inputs
         ]
@@ -97,6 +107,7 @@ class PythonHandler(FileHandler):
                     )
                     + "\n"
                 )
+        return os.path.join("tests", f"test_{self.question_data.id}.py")
 
     def generate_submission_file(self) -> str:
         """Generates the submission file"""

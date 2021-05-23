@@ -23,11 +23,11 @@ class FileHandler(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def generate_source(self):
+    def generate_source(self) -> str:
         raise NotImplementedError
 
     @abstractmethod
-    def generete_tests(self):
+    def generete_tests(self) -> str:
         raise NotImplementedError
 
     @abstractmethod
@@ -57,8 +57,8 @@ def generate_files(
         # generate
         data.creation_time = timestamp
         file_handler = FileHandler(data, language)
-        file_handler.generate_source()
-        file_handler.generete_tests()
+        data.file_path = file_handler.generate_source()
+        data.test_file_path = file_handler.generete_tests()
 
         args[qid] = data
         print(f"""The question "{qid}|{data.title}" was imported""")
