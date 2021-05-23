@@ -15,6 +15,7 @@ class QuestionData:
     difficulty: str = ""
     function_name: str = ""
     file_path: str = ""
+    test_file_path = ""
     raw_code: str = ""
     inputs: List[str] = field(default_factory=list)
     outputs: List[str] = field(default_factory=list)
@@ -54,6 +55,15 @@ class QuestionDB:
             qd (QuestionData): The question data
         """
         self.question_data_dict[qd.id] = qd
+
+    def delete_question(self, id: int):
+        """Removes a question from the dictionary
+
+        Args:
+            id (int): the question id
+        """
+        if id in self.question_data_dict:
+            self.question_data_dict.pop(id)
 
     def get_sorted_list(self, sort_by: str) -> List[QuestionData]:
         """Returns a sorted list with all the questions

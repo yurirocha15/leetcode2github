@@ -13,6 +13,9 @@ get-question:
 leetcode-login:
 	python scripts/leetcode_tools.py leetcode-login
 
+remove-question:
+	python scripts/leetcode_tools.py remove-question $(ID)
+
 setup:
 	python -m pip install -r requirements.txt
 	pre-commit install

@@ -175,5 +175,21 @@ def get_all_submissions():
     print(f"In total, {imported_cnt} questions were imported!")
 
 
+def remove_question(id: int):
+    qdb = QuestionDB()
+    qdb.load()
+    if qdb.check_if_exists(id):
+        data = qdb.get_data()[id]
+        os.remove(data.file_path)
+        os.remove(data.test_file_path)
+        qdb.delete_question(id)
+        qdb.save()
+        # update readme
+        rh = ReadmeHandler()
+        rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
+    else:
+        print(f"The question {id} could not be found!")
+
+
 if __name__ == "__main__":
-    clize.run(get_question, submit_question, leetcode_login, get_all_submissions)
+    clize.run(get_question, submit_question, leetcode_login, get_all_submissions, remove_question)
