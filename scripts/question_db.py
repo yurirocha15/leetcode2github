@@ -48,6 +48,11 @@ class QuestionDB:
         """
         return self.question_data_dict
 
+    def get_question(self, id: int) -> QuestionData:
+        if self.check_if_exists(id):
+            return self.question_data_dict[id]
+        return None
+
     def add_question(self, qd: QuestionData):
         """Add a question to the dictionary
 

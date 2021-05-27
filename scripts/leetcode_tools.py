@@ -46,9 +46,10 @@ def submit_question(id: int):
     qdb = QuestionDB()
     qdb.load()
     problems = qdb.get_data()
+    print(problems.keys())
     # create submit file
-    if id in problems:
-        file_handler = FileHandler(_LANGUAGE, problems[id])
+    if qdb.check_if_exists(id):
+        file_handler = FileHandler(qdb.get_question(id), _LANGUAGE)
         file_to_submit = file_handler.generate_submission_file()
 
         lc = LeetcodeClient()
@@ -112,10 +113,10 @@ def get_all_submissions():
             jobs = []
             manager = SyncManager()
             manager.start(mgr_init)
-            args = manager.dict()
+            ret_dict = manager.dict()
             submissions = lc.get_submission_list(last_key, offset)
             for submission in submissions["submissions_dump"]:
-                qid = -1
+                qid: int = -1
                 if submission["title_slug"] in slug_to_id_map:
                     qid = slug_to_id_map[submission["title_slug"]]
                 if (
@@ -125,7 +126,7 @@ def get_all_submissions():
                 ):
                     if qid == -1:
                         q_data = lc.scrap_question_data(submission["title_slug"], lc.get_cookies()[0])
-                        qid = q_data["data"]["question"]["questionFrontendId"]
+                        qid = int(q_data["data"]["question"]["questionFrontendId"])
                         slug_to_id_map[submission["title_slug"]] = qid
                     if not qdb.check_if_exists(qid):
                         # pre-store the question
@@ -134,7 +135,7 @@ def get_all_submissions():
                         p = Process(
                             target=generate_files,
                             args=(
-                                args,
+                                ret_dict,
                                 qid,
                                 lc,
                                 submission["timestamp"],
@@ -147,7 +148,8 @@ def get_all_submissions():
             for p in jobs:
                 p.join()
 
-            for data in args.values():
+            for data in ret_dict.values():
+                print(data)
                 qdb.add_question(data)
                 imported_cnt += 1
 
@@ -159,7 +161,7 @@ def get_all_submissions():
         print("Stopping the process...")
         for p in jobs:
             p.join()
-        for data in args.values():
+        for data in ret_dict.values():
             qdb.add_question(data)
             imported_cnt += 1
     except Exception as e:
