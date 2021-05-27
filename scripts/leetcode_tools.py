@@ -127,7 +127,6 @@ def get_all_submissions():
                     if qid == -1:
                         q_data = lc.scrap_question_data(submission["title_slug"], lc.get_cookies()[0])
                         qid = int(q_data["data"]["question"]["questionFrontendId"])
-                        print(type(qid), qid)
                         slug_to_id_map[submission["title_slug"]] = qid
                     if not qdb.check_if_exists(qid):
                         # pre-store the question
