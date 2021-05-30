@@ -177,8 +177,11 @@ def remove_question(id: int):
     qdb.load()
     if qdb.check_if_exists(id):
         data = qdb.get_data()[id]
-        os.remove(data.file_path)
-        os.remove(data.test_file_path)
+        try:
+            os.remove(data.file_path)
+            os.remove(data.test_file_path)
+        except FileNotFoundError as e:
+            print(e.args)
         qdb.delete_question(id)
         qdb.save()
         # update readme
