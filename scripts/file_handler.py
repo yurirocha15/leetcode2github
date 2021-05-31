@@ -1,3 +1,4 @@
+import os
 import signal
 from abc import ABC, abstractmethod
 from typing import Dict, Type, TypeVar
@@ -50,6 +51,7 @@ def generate_files(
         )
     except ValueError as e:
         print(e.args)
+        os.remove(f"tmp{qid}.txt")
         signal.signal(signal.SIGINT, s)
         return
 
