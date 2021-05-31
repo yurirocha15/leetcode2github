@@ -3,7 +3,7 @@ import os
 import pickle
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Union
 
 
 @dataclass
@@ -29,7 +29,10 @@ class QuestionDB:
         self.db_file = "bin/question_data.pkl"
         self.id_to_slug_file = "bin/id_to_slug.pkl"
         self.question_data_dict: Dict[int, QuestionData] = {}
-        self.id_to_slug_dict: Dict[int, str] = {}
+        self.id_to_slug_map: Dict[str, Union[Dict[int, str], Dict[str, int]]] = {
+            "id_to_slug": {},
+            "slug_to_id": {},
+        }
 
     def load(self):
         """Load the question data from disk"""
@@ -38,14 +41,14 @@ class QuestionDB:
                 self.question_data_dict = pickle.load(f)
         if os.path.isfile(self.id_to_slug_file):
             with open(self.id_to_slug_file, "rb") as f:
-                self.id_to_slug_dict = pickle.load(f)
+                self.id_to_slug_map = pickle.load(f)
 
     def save(self):
         """Save the question data to disk"""
         with open(self.db_file, "wb") as f:
             pickle.dump(self.question_data_dict, f)
         with open(self.id_to_slug_file, "wb") as f:
-            pickle.dump(self.id_to_slug_dict, f)
+            pickle.dump(self.id_to_slug_map, f)
 
     def get_data(self) -> Dict[int, QuestionData]:
         """Returns the question data
@@ -109,14 +112,50 @@ class QuestionDB:
         Returns:
             str: the question title slug
         """
-        if id in self.id_to_slug_dict:
-            return self.id_to_slug_dict[id]
+        if self.check_if_slug_is_known(id):
+            return self.id_to_slug_map["id_to_slug"][id]
         return ""
 
-    def set_id_to_slug(self, id_to_slug: Dict[int, str]):
+    def check_if_slug_is_known(self, id: int) -> bool:
+        """Checks if the title slug is cached locally
+
+        Args:
+            id (int): the question id
+
+        Returns:
+            bool: true if the title slug is cached locally
+        """
+        return id in self.id_to_slug_map["id_to_slug"]
+
+    def get_id_from_slug(self, slug: str) -> int:
+        """Get the question id from its title slug
+
+        Args:
+            str: the question title slug
+
+        Returns:
+            id (int): the question id
+        """
+        if self.check_if_id_is_known(slug):
+            return self.id_to_slug_map["slug_to_id"][slug]
+        return -1
+
+    def check_if_id_is_known(self, slug: str) -> bool:
+        """Checks if the id is cached locally
+
+        Args:
+            str: the question title slug
+
+        Returns:
+            bool: true if the id sis cached locally
+        """
+        return slug in self.id_to_slug_map["slug_to_id"]
+
+    def set_id_to_slug_map(self, id_to_slug: Dict[str, Union[Dict[int, str], Dict[str, int]]]):
         """Sets the id to slug dict
 
         Args:
-            id_to_slug (Dict[int,str]): a dictionary mapping the question id to the title slug
+            id_to_slug (Dict[str,Union[Dict[int, str],Dict[str, int]]]):
+                a dictionary mapping the question id to the title slug and vice-versa
         """
-        self.id_to_slug_dict = id_to_slug
+        self.id_to_slug_map = id_to_slug

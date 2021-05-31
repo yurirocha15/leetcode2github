@@ -1,6 +1,6 @@
 import signal
 from abc import ABC, abstractmethod
-from typing import Dict, Type, TypeVar
+from typing import Dict, Optional, Type, TypeVar
 
 from leetcode_client import LeetcodeClient
 from question_db import QuestionData
@@ -39,13 +39,21 @@ class FileHandler(ABC):
 
 
 def generate_files(
-    args: Dict[int, QuestionData], qid: int, lc: LeetcodeClient, timestamp: float, language: str
+    args: Dict[int, QuestionData],
+    qid: int,
+    title_slug: str,
+    lc: LeetcodeClient,
+    timestamp: float,
+    language: str,
+    code: Optional[str] = "",
 ):
     s = signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         data, is_new = lc.get_question_data(
             qid,
+            title_slug,
             language,
+            code,
             verbose=False,
         )
     except ValueError as e:

@@ -3,11 +3,11 @@ import os
 import platform
 import re
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import browser_cookie3
 import requests
-from question_db import QuestionData, QuestionDB
+from question_db import QuestionData
 
 
 class LeetcodeClient:
@@ -37,23 +37,29 @@ class LeetcodeClient:
         os.system(self.binary_path + " user -L")
 
     def get_question_data(
-        self, id: int, language: str, verbose: bool = False
+        self,
+        id: int,
+        title_slug: str,
+        language: str,
+        code: Optional[str] = "",
+        verbose: Optional[bool] = False,
     ) -> Tuple[QuestionData, bool]:
         """Gets the data from a question
 
         Args:
             id (int): the question id
-            verbose (bool): if true print information to the terminal
+            title_slug (str): the question title
+            language str: the language to download the code
+            code (Optional[str]): the question solution
+            verbose (Optional[bool]): if true print information to the terminal
 
         Returns:
             QuestionData: The data needed to generate the question files
         """
-        qdb = QuestionDB()
-        qdb.load()
-        question_data = qdb.get_data()
-        if id in question_data:
-            print("Question already imported")
-            return question_data[id], False
+        # get cookies
+        cookies, _, _ = self.get_cookies()
+
+        leetcode_question_data = self.scrap_question_data(title_slug, cookies)
 
         data = QuestionData(id=id, creation_time=time.time())
         os.system(self.binary_path + f" show {id} -gx -l {language} -o ./src > tmp{id}.txt")
@@ -86,14 +92,13 @@ class LeetcodeClient:
         os.rename(data.file_path, new_file_path)
         data.file_path = new_file_path
 
-        # get cookies
-        cookies, _, _ = self.get_cookies()
-
-        leetcode_question_data = self.scrap_question_data(data.url.split("/")[-3], cookies)
         data.categories = leetcode_question_data["data"]["question"]["topicTags"]
-        data.raw_code = self.get_latest_submission(
-            leetcode_question_data["data"]["question"]["questionId"], cookies, language
-        )
+        if code:
+            data.raw_code = code
+        else:
+            data.raw_code = self.get_latest_submission(
+                leetcode_question_data["data"]["question"]["questionId"], cookies, language
+            )
         tmp_function_name = re.findall(r"    def (.*?)\(self,", data.raw_code)
         if tmp_function_name:
             data.function_name = tmp_function_name[0]
@@ -229,7 +234,13 @@ class LeetcodeClient:
 
         return json.loads(response.text)
 
-    def get_all_questions_data(self, cookies: str) -> Dict[int, str]:
+    def get_id_to_slug_map(self) -> Dict[str, Union[Dict[int, str], Dict[str, int]]]:
+        """Get a dictionary that maps the id to the question title slug
+
+        Returns:
+            Dict[str,Union[Dict[int, str],Dict[str, int]]]: maps the id to the title slug
+        """
+        cookies, _, _ = self.get_cookies()
         url = "https://leetcode.com/api/problems/all/"
 
         payload = {}
@@ -248,14 +259,20 @@ class LeetcodeClient:
 
         response = requests.request("GET", url, headers=headers, data=payload)
 
-        id_to_title: Dict[int, str] = {}
+        id_to_slug_map: Dict[str, Union[Dict[int, str], Dict[str, int]]] = {
+            "id_to_slug": {},
+            "slug_to_id": {},
+        }
         for stat in json.loads(response.text)["stat_status_pairs"]:
             if "frontend_question_id" in stat["stat"] and "question__title_slug" in stat["stat"]:
-                id_to_title[int(stat["stat"]["frontend_question_id"])] = stat["stat"][
+                id_to_slug_map["id_to_slug"][int(stat["stat"]["frontend_question_id"])] = stat["stat"][
                     "question__title_slug"
                 ]
+                id_to_slug_map["slug_to_id"][stat["stat"]["question__title_slug"]] = int(
+                    stat["stat"]["frontend_question_id"]
+                )
 
-        return id_to_title
+        return id_to_slug_map
 
 
 if __name__ == "__main__":

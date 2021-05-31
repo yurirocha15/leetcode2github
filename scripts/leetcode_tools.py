@@ -24,15 +24,24 @@ def get_question(id: int):
     Args:
         id (int): the question id
     """
-    # get question data
     lc = LeetcodeClient()
+    qdb = QuestionDB()
+    qdb.load()
+
+    if qdb.check_if_exists(id):
+        print("Question already imported")
+        return
+
+    if not qdb.check_if_slug_is_known(id):
+        qdb.set_id_to_slug_map(lc.get_id_to_slug_map())
+        qdb.save()
+
+    # get question data
     args: Dict[int, QuestionData] = {}
-    generate_files(args, id, lc, time.time(), _LANGUAGE)
+    generate_files(args, id, qdb.get_slug_from_id(id), lc, time.time(), _LANGUAGE)
 
     if id in args:
         # store data
-        qdb = QuestionDB()
-        qdb.load()
         qdb.add_question(args[id])
         qdb.save()
 
@@ -46,7 +55,6 @@ def submit_question(id: int):
     qdb = QuestionDB()
     qdb.load()
     problems = qdb.get_data()
-    print(problems.keys())
     # create submit file
     if qdb.check_if_exists(id):
         file_handler = FileHandler(qdb.get_question(id), _LANGUAGE)
@@ -102,7 +110,6 @@ def get_all_submissions():
     last_key: str = ""
     offset: int = 0
     imported_cnt = 0
-    slug_to_id_map: Dict[str, int] = {}
 
     # initializer for SyncManager
     def mgr_init():
@@ -117,17 +124,17 @@ def get_all_submissions():
             submissions = lc.get_submission_list(last_key, offset)
             for submission in submissions["submissions_dump"]:
                 qid: int = -1
-                if submission["title_slug"] in slug_to_id_map:
-                    qid = slug_to_id_map[submission["title_slug"]]
+                if qdb.check_if_id_is_known(submission["title_slug"]):
+                    qid = qdb.get_id_from_slug(submission["title_slug"])
+                else:
+                    qdb.set_id_to_slug_map(lc.get_id_to_slug_map())
+                    qdb.save()
+                    qid = qdb.get_id_from_slug(submission["title_slug"])
                 if (
                     submission["status_display"] == "Accepted"
                     and submission["lang"] == _LANGUAGE
                     and not qdb.check_if_exists(qid)
                 ):
-                    if qid == -1:
-                        q_data = lc.scrap_question_data(submission["title_slug"], lc.get_cookies()[0])
-                        qid = int(q_data["data"]["question"]["questionFrontendId"])
-                        slug_to_id_map[submission["title_slug"]] = qid
                     if not qdb.check_if_exists(qid):
                         # pre-store the question
                         data = QuestionData(id=qid)
@@ -137,9 +144,11 @@ def get_all_submissions():
                             args=(
                                 ret_dict,
                                 qid,
+                                submission["title_slug"],
                                 lc,
                                 submission["timestamp"],
                                 _LANGUAGE,
+                                submission["code"],
                             ),
                         )
                         jobs.append(p)
@@ -193,5 +202,17 @@ def remove_question(id: int):
         print(f"The question {id} could not be found!")
 
 
+def get_all_questions():
+    lc = LeetcodeClient()
+    lc.get_all_questions_data(lc.get_cookies()[0])
+
+
 if __name__ == "__main__":
-    clize.run(get_question, submit_question, leetcode_login, get_all_submissions, remove_question)
+    clize.run(
+        get_question,
+        submit_question,
+        leetcode_login,
+        get_all_submissions,
+        remove_question,
+        get_all_questions,
+    )
