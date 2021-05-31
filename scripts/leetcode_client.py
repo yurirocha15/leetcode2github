@@ -229,6 +229,34 @@ class LeetcodeClient:
 
         return json.loads(response.text)
 
+    def get_all_questions_data(self, cookies: str) -> Dict[int, str]:
+        url = "https://leetcode.com/api/problems/all/"
+
+        payload = {}
+        headers = {
+            "authority": "leetcode.com",
+            "pragma": "no-cache",
+            "accept": "application/json",
+            "cache-control": "no-cache",
+            "dnt": "1",
+            "sec-ch-ua-mobile": "?0",
+            "content-type": "application/json",
+            "origin": "https://leetcode.com",
+            "accept-language": "en-US,en;q=0.9",
+            "cookie": cookies,
+        }
+
+        response = requests.request("GET", url, headers=headers, data=payload)
+
+        id_to_title: Dict[int, str] = {}
+        for stat in json.loads(response.text)["stat_status_pairs"]:
+            if "frontend_question_id" in stat["stat"] and "question__title_slug" in stat["stat"]:
+                id_to_title[int(stat["stat"]["frontend_question_id"])] = stat["stat"][
+                    "question__title_slug"
+                ]
+
+        return id_to_title
+
 
 if __name__ == "__main__":
     lc = LeetcodeClient()
