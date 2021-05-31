@@ -11,6 +11,7 @@ from typing import Any, Dict, final
 import clize
 from file_handler import FileHandler, generate_files
 from leetcode_client import LeetcodeClient
+from my_utils import mgr_init
 from question_db import QuestionData, QuestionDB
 from readme_handler import ReadmeHandler
 
@@ -46,7 +47,6 @@ def submit_question(id: int):
     qdb = QuestionDB()
     qdb.load()
     problems = qdb.get_data()
-    print(problems.keys())
     # create submit file
     if qdb.check_if_exists(id):
         file_handler = FileHandler(qdb.get_question(id), _LANGUAGE)
@@ -104,10 +104,6 @@ def get_all_submissions():
     imported_cnt = 0
     slug_to_id_map: Dict[str, int] = {}
 
-    # initializer for SyncManager
-    def mgr_init():
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-
     try:
         while has_next:
             jobs = []
@@ -149,7 +145,6 @@ def get_all_submissions():
                 p.join()
 
             for data in ret_dict.values():
-                print(data)
                 qdb.add_question(data)
                 imported_cnt += 1
 
@@ -182,8 +177,11 @@ def remove_question(id: int):
     qdb.load()
     if qdb.check_if_exists(id):
         data = qdb.get_data()[id]
-        os.remove(data.file_path)
-        os.remove(data.test_file_path)
+        try:
+            os.remove(data.file_path)
+            os.remove(data.test_file_path)
+        except FileNotFoundError as e:
+            print(e.args)
         qdb.delete_question(id)
         qdb.save()
         # update readme
