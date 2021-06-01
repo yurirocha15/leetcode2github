@@ -16,7 +16,9 @@ class QuestionData:
     function_name: str = ""
     file_path: str = ""
     test_file_path = ""
+    question_template: str = ""
     raw_code: str = ""
+    description: List[str] = field(default_factory=list)
     inputs: List[str] = field(default_factory=list)
     outputs: List[str] = field(default_factory=list)
     categories: List[Dict[str, str]] = field(default_factory=list)

@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import browser_cookie3
 import requests
+from bs4 import BeautifulSoup
 from question_db import IdTitleMap, QuestionData
 
 
@@ -62,50 +63,48 @@ class LeetcodeClient:
         leetcode_question_data = self.scrap_question_data(title_slug, cookies)
 
         data = QuestionData(id=id, creation_time=time.time())
-        os.system(self.binary_path + f" show {id} -gx -l {language} -o ./src > tmp{id}.txt")
-        with open(f"tmp{id}.txt", "r", encoding="UTF8") as f:
-            for i, line in enumerate(f):
-                if verbose:
-                    print(line)
-                if "[ERROR]" in line:
-                    raise ValueError(line)
 
-                if i == 0:
-                    data.title = " ".join(line.split()[1:])
-                elif "Source Code:" in line:
-                    data.file_path = line.split()[3]
-                elif "https://leetcode" in line:
-                    data.url = line[:-1]
-                elif "Input: " in line:
-                    data.inputs.append(line[7:-1].replace("null", "None"))
-                elif "Output: " in line:
-                    data.outputs.append(line[8:-1].replace("null", "None"))
-                elif line[0] == "*":
-                    words = line.split()
-                    if words[1] in ["Easy", "Medium", "Hard"]:
-                        data.difficulty = words[1]
-
-        os.remove(f"tmp{id}.txt")
-        split_path = data.file_path.split(self.divider)
-        split_path[-1] = ("leetcode_" + split_path[-1]).replace(".", "_", 1).replace("-", "_")
-        new_file_path = os.path.join(*split_path)
-        os.rename(data.file_path, new_file_path)
-        data.file_path = new_file_path
-
+        data.title = leetcode_question_data["data"]["question"]["title"]
+        data.url = (
+            "https://leetcode.com/problems/" + leetcode_question_data["data"]["question"]["titleSlug"]
+        )
+        data.difficulty = leetcode_question_data["data"]["question"]["difficulty"]
+        data.question_template = next(
+            code["code"]
+            for code in leetcode_question_data["data"]["question"]["codeSnippets"]
+            if code["langSlug"] == language
+        )
         data.categories = leetcode_question_data["data"]["question"]["topicTags"]
+        soup = BeautifulSoup(
+            leetcode_question_data["data"]["question"]["content"], features="html.parser"
+        )
+        data.description = soup.get_text().split("\n")
+        num_of_inputs = len(leetcode_question_data["data"]["question"]["sampleTestCase"].split("\n"))
+        inputs = leetcode_question_data["data"]["question"]["exampleTestcases"].split("\n")
+        data.inputs = [
+            ", ".join(inputs[i : i + num_of_inputs]) for i in range(0, len(inputs), num_of_inputs)
+        ]
+        tmp_description = []
+        for line in data.description:
+            if "Output: " in line:
+                data.outputs.append(line[8:])
+            if len(line) > 100:
+                # split on commas or periods, while keeping them
+                tmp_description.extend(re.split(r"(?<=[\.\,])\s*", line))
+            else:
+                tmp_description.append(line)
+        print(data.outputs)
+        data.description = tmp_description
+
+        data.file_path = os.path.join(
+            "src",
+            f"leetcode_{data.id}_"
+            + leetcode_question_data["data"]["question"]["titleSlug"].replace("-", "_"),
+        )
+
         if code:
             data.raw_code = code
-        else:
-            data.raw_code = self.get_latest_submission(
-                leetcode_question_data["data"]["question"]["questionId"], cookies, language
-            )
-        tmp_function_name = re.findall(r"    def (.*?)\(self,", data.raw_code)
-        if tmp_function_name:
-            data.function_name = tmp_function_name[0]
-        else:
-            with open(data.file_path, "r", encoding="UTF8") as f:
-                text = f.read()
-                data.function_name = re.findall(r"    def (.*?)\(self,", text)[0]
+
         return data, True
 
     def scrap_question_data(self, question_name: str, cookies: str) -> List[Dict[str, Any]]:

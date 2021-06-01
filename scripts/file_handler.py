@@ -24,6 +24,10 @@ class FileHandler(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_function_name(self) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
     def generate_source(self) -> str:
         raise NotImplementedError
 
@@ -67,6 +71,7 @@ def generate_files(
         # generate
         data.creation_time = timestamp
         file_handler = FileHandler(data, language)
+        data.function_name = file_handler.get_function_name()
         data.file_path = file_handler.generate_source()
         data.test_file_path = file_handler.generete_tests()
 

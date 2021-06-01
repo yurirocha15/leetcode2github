@@ -15,23 +15,47 @@ class PythonHandler(FileHandler):
     def set_question_data(self, question_data: QuestionData):
         self.question_data = question_data
 
+    def get_function_name(self) -> str:
+        """Returns the function name
+
+        Returns:
+            str: the function name
+        """
+        code = (
+            self.question_data.raw_code
+            if self.question_data.raw_code
+            else self.question_data.question_template
+        )
+        return re.findall(r"    def (.*?)\(self,", code)[0]
+
     def generate_source(self) -> str:
         """Generates the source file
 
         Returns:
             str: the path to the test file
         """
-        lines: List[str] = []
-        code_lines = self.parse_raw_code(self.question_data.raw_code)
-        with open(self.question_data.file_path, "r", encoding="UTF8") as f:
-            for line in f:
-                if re.match(r"class\s+Solution\s*:\s*(\r\n|\r|\n)", line):
-                    break
-                lines.append(line)
-            if code_lines:
-                lines.extend([l + "\n" for l in code_lines])
-            else:
-                lines.append("        pass\n")
+        lines: List[str] = (
+            [
+                f"#\n",
+                f"# [{self.question_data.id}] {self.question_data.title}\n",
+                f"# Difficulty: {self.question_data.difficulty}\n",
+                f"# {self.question_data.url}\n",
+                f"#\n",
+            ]
+            + ["# " + line + "\n" for line in self.question_data.description]
+            + [
+                "\n",
+                "\n",
+            ]
+        )
+        code, is_solution = (
+            (self.question_data.raw_code, True)
+            if self.question_data.raw_code
+            else (self.question_data.question_template, False)
+        )
+        code_lines = self.parse_raw_code(code, is_solution)
+        lines.extend([l for l in code_lines])
+        self.question_data.file_path += ".py"
 
         with open(self.question_data.file_path, "w", encoding="UTF8") as f:
             f.writelines(lines)
@@ -62,10 +86,12 @@ class PythonHandler(FileHandler):
             str: the path to the test file
         """
         self.question_data.inputs = [
-            s.replace("true", "True").replace("false", "False") for s in self.question_data.inputs
+            s.replace("null", "None").replace("true", "True").replace("false", "False")
+            for s in self.question_data.inputs
         ]
         self.question_data.outputs = [
-            s.replace("true", "True").replace("false", "False") for s in self.question_data.outputs
+            s.replace("null", "None").replace("true", "True").replace("false", "False")
+            for s in self.question_data.outputs
         ]
         with open(
             os.path.join("tests", f"test_{self.question_data.id}.py"),
@@ -126,19 +152,20 @@ class PythonHandler(FileHandler):
 
         return temporary_file
 
-    def parse_raw_code(self, raw_code: str) -> List[str]:
+    def parse_raw_code(self, raw_code: str, is_solution: bool) -> List[str]:
         """Parses the raw code returned by leetcode
 
         Args:
             raw_code (str): the raw code returned by leetcode
+            is_solution (bool): true if the raw_code is a solution
 
         Returns:
             List[str]: a list of lines of code
         """
-        lines = raw_code.split("\n")
-        for i, line in enumerate(lines):
-            if re.match(r"class\s+Solution\s*:\s*", line):
-                break
+        lines = []
+        for i, line in enumerate(raw_code.split("\n")):
+            lines.append(line + "\n")
+            if re.match(r"    def (.*?)\(self,", line) and not is_solution:
+                lines.append("        pass\n")
 
-        lines = lines[i:]
         return lines

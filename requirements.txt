@@ -1,5 +1,6 @@
 autoimport == 0.7.0
 black == 20.8b1
+bs4 == 0.0.1
 browser-cookie3 == 0.12.1
 clize == 4.1.1
 flake8 == 3.8.4
