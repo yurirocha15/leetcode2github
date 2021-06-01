@@ -78,7 +78,7 @@ class LeetcodeClient:
         soup = BeautifulSoup(
             leetcode_question_data["data"]["question"]["content"], features="html.parser"
         )
-        data.description = soup.get_text().split("\n")
+        data.description = soup.get_text().replace("\r\n", "\n").split("\n")
         num_of_inputs = len(leetcode_question_data["data"]["question"]["sampleTestCase"].split("\n"))
         inputs = leetcode_question_data["data"]["question"]["exampleTestcases"].split("\n")
         data.inputs = [
@@ -93,7 +93,7 @@ class LeetcodeClient:
                 tmp_description.extend(re.split(r"(?<=[\.\,])\s*", line))
             else:
                 tmp_description.append(line)
-        print(data.outputs)
+
         data.description = tmp_description
 
         data.file_path = os.path.join(
