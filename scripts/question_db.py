@@ -22,33 +22,36 @@ class QuestionData:
     categories: List[Dict[str, str]] = field(default_factory=list)
 
 
+@dataclass
+class IdTitleMap:
+    id_to_title: Dict[int, str] = field(default_factory=dict)
+    title_to_id: Dict[str, int] = field(default_factory=dict)
+
+
 class QuestionDB:
     """Handles the question data"""
 
     def __init__(self):
         self.db_file = "bin/question_data.pkl"
-        self.id_to_slug_file = "bin/id_to_slug.pkl"
+        self.id_title_map_file = "bin/id_title_map.pkl"
         self.question_data_dict: Dict[int, QuestionData] = {}
-        self.id_to_slug_map: Dict[str, Union[Dict[int, str], Dict[str, int]]] = {
-            "id_to_slug": {},
-            "slug_to_id": {},
-        }
+        self.id_title_map: IdTitleMap = IdTitleMap()
 
     def load(self):
         """Load the question data from disk"""
         if os.path.isfile(self.db_file):
             with open(self.db_file, "rb") as f:
                 self.question_data_dict = pickle.load(f)
-        if os.path.isfile(self.id_to_slug_file):
-            with open(self.id_to_slug_file, "rb") as f:
-                self.id_to_slug_map = pickle.load(f)
+        if os.path.isfile(self.id_title_map_file):
+            with open(self.id_title_map_file, "rb") as f:
+                self.id_title_map = pickle.load(f)
 
     def save(self):
         """Save the question data to disk"""
         with open(self.db_file, "wb") as f:
             pickle.dump(self.question_data_dict, f)
-        with open(self.id_to_slug_file, "wb") as f:
-            pickle.dump(self.id_to_slug_map, f)
+        with open(self.id_title_map_file, "wb") as f:
+            pickle.dump(self.id_title_map, f)
 
     def get_data(self) -> Dict[int, QuestionData]:
         """Returns the question data
@@ -103,7 +106,7 @@ class QuestionDB:
         """
         return id in self.question_data_dict
 
-    def get_slug_from_id(self, id: int) -> str:
+    def get_title_from_id(self, id: int) -> str:
         """Get the question title slug from its id
 
         Args:
@@ -113,7 +116,7 @@ class QuestionDB:
             str: the question title slug
         """
         if self.check_if_slug_is_known(id):
-            return self.id_to_slug_map["id_to_slug"][id]
+            return self.id_title_map.id_to_title[id]
         return ""
 
     def check_if_slug_is_known(self, id: int) -> bool:
@@ -125,9 +128,9 @@ class QuestionDB:
         Returns:
             bool: true if the title slug is cached locally
         """
-        return id in self.id_to_slug_map["id_to_slug"]
+        return id in self.id_title_map.id_to_title
 
-    def get_id_from_slug(self, slug: str) -> int:
+    def get_id_from_title(self, slug: str) -> int:
         """Get the question id from its title slug
 
         Args:
@@ -137,7 +140,7 @@ class QuestionDB:
             id (int): the question id
         """
         if self.check_if_id_is_known(slug):
-            return self.id_to_slug_map["slug_to_id"][slug]
+            return self.id_title_map.title_to_id[slug]
         return -1
 
     def check_if_id_is_known(self, slug: str) -> bool:
@@ -149,13 +152,13 @@ class QuestionDB:
         Returns:
             bool: true if the id sis cached locally
         """
-        return slug in self.id_to_slug_map["slug_to_id"]
+        return slug in self.id_title_map.title_to_id
 
-    def set_id_to_slug_map(self, id_to_slug: Dict[str, Union[Dict[int, str], Dict[str, int]]]):
+    def set_id_title_map(self, id_title_map: IdTitleMap):
         """Sets the id to slug dict
 
         Args:
-            id_to_slug (Dict[str,Union[Dict[int, str],Dict[str, int]]]):
+            id_title_map (IdTitleMap):
                 a dictionary mapping the question id to the title slug and vice-versa
         """
-        self.id_to_slug_map = id_to_slug
+        self.id_title_map = id_title_map

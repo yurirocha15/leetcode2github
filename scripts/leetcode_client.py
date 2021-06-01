@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import browser_cookie3
 import requests
-from question_db import QuestionData
+from question_db import IdTitleMap, QuestionData
 
 
 class LeetcodeClient:
@@ -234,11 +234,11 @@ class LeetcodeClient:
 
         return json.loads(response.text)
 
-    def get_id_to_slug_map(self) -> Dict[str, Union[Dict[int, str], Dict[str, int]]]:
+    def get_id_title_map(self) -> IdTitleMap:
         """Get a dictionary that maps the id to the question title slug
 
         Returns:
-            Dict[str,Union[Dict[int, str],Dict[str, int]]]: maps the id to the title slug
+            IdTitleMap: maps the id to the title slug
         """
         cookies, _, _ = self.get_cookies()
         url = "https://leetcode.com/api/problems/all/"
@@ -259,20 +259,17 @@ class LeetcodeClient:
 
         response = requests.request("GET", url, headers=headers, data=payload)
 
-        id_to_slug_map: Dict[str, Union[Dict[int, str], Dict[str, int]]] = {
-            "id_to_slug": {},
-            "slug_to_id": {},
-        }
+        id_title_map: IdTitleMap = IdTitleMap()
         for stat in json.loads(response.text)["stat_status_pairs"]:
             if "frontend_question_id" in stat["stat"] and "question__title_slug" in stat["stat"]:
-                id_to_slug_map["id_to_slug"][int(stat["stat"]["frontend_question_id"])] = stat["stat"][
+                id_title_map.id_to_title[int(stat["stat"]["frontend_question_id"])] = stat["stat"][
                     "question__title_slug"
                 ]
-                id_to_slug_map["slug_to_id"][stat["stat"]["question__title_slug"]] = int(
+                id_title_map.title_to_id[stat["stat"]["question__title_slug"]] = int(
                     stat["stat"]["frontend_question_id"]
                 )
 
-        return id_to_slug_map
+        return id_title_map
 
 
 if __name__ == "__main__":

@@ -34,12 +34,12 @@ def get_question(id: int):
         return
 
     if not qdb.check_if_slug_is_known(id):
-        qdb.set_id_to_slug_map(lc.get_id_to_slug_map())
+        qdb.set_id_title_map(lc.get_id_title_map())
         qdb.save()
 
     # get question data
     args: Dict[int, QuestionData] = {}
-    generate_files(args, id, qdb.get_slug_from_id(id), lc, time.time(), _LANGUAGE)
+    generate_files(args, id, qdb.get_title_from_id(id), lc, time.time(), _LANGUAGE)
 
     if id in args:
         # store data
@@ -122,11 +122,11 @@ def get_all_submissions():
             for submission in submissions["submissions_dump"]:
                 qid: int = -1
                 if qdb.check_if_id_is_known(submission["title_slug"]):
-                    qid = qdb.get_id_from_slug(submission["title_slug"])
+                    qid = qdb.get_id_from_title(submission["title_slug"])
                 else:
-                    qdb.set_id_to_slug_map(lc.get_id_to_slug_map())
+                    qdb.set_id_title_map(lc.get_id_title_map())
                     qdb.save()
-                    qid = qdb.get_id_from_slug(submission["title_slug"])
+                    qid = qdb.get_id_from_title(submission["title_slug"])
                 if (
                     submission["status_display"] == "Accepted"
                     and submission["lang"] == _LANGUAGE
