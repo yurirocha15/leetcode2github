@@ -11,6 +11,7 @@ class QuestionData:
     title: str = ""
     url: str = ""
     id: int = 0
+    internal_id: int = 0
     creation_time: float = 0.0
     difficulty: str = ""
     function_name: str = ""

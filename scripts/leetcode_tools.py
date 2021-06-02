@@ -59,16 +59,13 @@ def submit_question(id: int):
     # create submit file
     if qdb.check_if_exists(id):
         file_handler = FileHandler(qdb.get_question(id), _LANGUAGE)
-        file_to_submit = file_handler.generate_submission_file()
+        code = file_handler.generate_submission_file()
 
         lc = LeetcodeClient()
         try:
-            lc.submit_question(file_to_submit)
+            lc.submit_question(code, qdb.get_question(id).internal_id, _LANGUAGE)
         except Exception as e:
             print(e.args)
-
-        os.remove(file_to_submit)
-
     else:
         print(f"Could not find the question with id {id}")
 

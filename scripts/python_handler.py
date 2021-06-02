@@ -136,21 +136,21 @@ class PythonHandler(FileHandler):
         return os.path.join("tests", f"test_{self.question_data.id}.py")
 
     def generate_submission_file(self) -> str:
-        """Generates the submission file"""
-        lines: List[str] = []
-        temporary_file: str = "tmp.py"
+        """Generates the submission file
+
+        Returns:
+            str: a string containing the code
+        """
+        code: str = ""
         # regex to match main definition
         match = r"""if\s+__name__\s+==\s+('|")__main__('|")\s*:\s*"""
         with open(self.question_data.file_path, "r", encoding="UTF8") as f:
             for line in f:
                 if re.match(match, line):
                     break
-                lines.append(line)
+                code += line
 
-        with open(temporary_file, "w", encoding="UTF8") as f:
-            f.writelines(lines)
-
-        return temporary_file
+        return code
 
     def parse_raw_code(self, raw_code: str, is_solution: bool) -> List[str]:
         """Parses the raw code returned by leetcode
