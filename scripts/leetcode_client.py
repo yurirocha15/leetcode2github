@@ -3,7 +3,7 @@ import os
 import platform
 import re
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import browser_cookie3
 import requests
@@ -16,26 +16,10 @@ class LeetcodeClient:
 
     def __init__(self):
         os_name = platform.system()
-        if os_name == "Linux":
-            self.binary_path = os.path.join("bin", "leetcode-cli", "linux", "leetcode-cli")
+        if os_name in ["Linux", "Darwin"]:
             self.divider = "/"
         elif os_name == "Windows":
-            self.binary_path = os.path.join("bin", "leetcode-cli", "windows", "leetcode-cli.exe")
             self.divider = "\\"
-        elif os_name == "Darwin":
-            self.binary_path = os.path.join("bin", "leetcode-cli", "macos", "leetcode-cli")
-            self.divider = "/"
-
-    def login(self):
-        """Login to leetcode using the leetcode-cli
-
-        The file ~/.lc/leetcode/user.json needs to exist for this command to work
-        """
-        os.system(self.binary_path + " user -c")
-
-    def logout(self):
-        """Logout from leetcode"""
-        os.system(self.binary_path + " user -L")
 
     def get_question_data(
         self,

@@ -10,9 +10,6 @@ get-question:
 	python scripts/leetcode_tools.py get-question $(ID)
 	make format
 
-leetcode-login:
-	python scripts/leetcode_tools.py leetcode-login
-
 remove-question:
 	python scripts/leetcode_tools.py remove-question $(ID)
 

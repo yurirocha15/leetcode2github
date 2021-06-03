@@ -70,35 +70,6 @@ def submit_question(id: int):
         print(f"Could not find the question with id {id}")
 
 
-def leetcode_login():
-    """Login to leetcode"""
-    home_folder = str(Path.home())
-    lc = LeetcodeClient()
-    # Logout. This erases the user.json file
-    lc.logout()
-    os_name = platform.system()
-    if os_name in ["Linux", "Darwin"]:
-        cmd = "mkdir -p "
-    elif os_name == "Windows":
-        cmd = "mkdir "
-    os.system(cmd + os.path.join(home_folder, ".lc", "leetcode"))
-    print("Make sure to login to leetcode on either chrome or firefox.")
-    try:
-        userid, leetcode_session, crsftoken = lc.get_parsed_cookies()
-    except ValueError as e:
-        print(e.args)
-    else:
-        with open(os.path.join(home_folder, ".lc", "leetcode", "user.json"), "w") as f:
-            f.write("{\n")
-            f.write(f'    "login": "{userid}",\n')
-            f.write('    "loginCSRF": "",\n')
-            f.write(f'    "sessionCSRF": "{crsftoken}",\n')
-            f.write(f'    "sessionId": "{leetcode_session}"\n')
-            f.write("}")
-        lc.login()
-        print(f"Logged in as {userid}")
-
-
 def get_all_submissions():
     """Get all solutions and generate their files"""
     lc = LeetcodeClient()
@@ -207,7 +178,6 @@ if __name__ == "__main__":
     clize.run(
         get_question,
         submit_question,
-        leetcode_login,
         get_all_submissions,
         remove_question,
         get_all_questions,
