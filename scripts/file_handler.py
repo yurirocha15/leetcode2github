@@ -54,13 +54,7 @@ def generate_files(
 ):
     s = signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
-        data, is_new = lc.get_question_data(
-            qid,
-            title_slug,
-            language,
-            code,
-            verbose=False,
-        )
+        data, is_new = lc.get_question_data(qid, title_slug, language, code)
     except ValueError as e:
         print(e.args)
         os.remove(f"tmp{qid}.txt")
