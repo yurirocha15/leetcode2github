@@ -35,8 +35,8 @@ class QuestionDB:
     """Handles the question data"""
 
     def __init__(self):
-        self.db_file = "bin/question_data.pkl"
-        self.id_title_map_file = "bin/id_title_map.pkl"
+        self.db_file = "./.question_data.pkl"
+        self.id_title_map_file = "./.id_title_map.pkl"
         self.question_data_dict: Dict[int, QuestionData] = {}
         self.id_title_map: IdTitleMap = IdTitleMap()
 
