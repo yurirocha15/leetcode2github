@@ -9,7 +9,7 @@ Please check the [Solution Summary](QUESTIONS.md).
 
 ## Usage
 
-Currently, tit is necessary to log into leetcode on either chrome or firefox before running the commands.
+Currently, it is necessary to log into leetcode on either chrome or firefox before running the commands.
 
 ### Installation
 
