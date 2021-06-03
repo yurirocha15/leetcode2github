@@ -110,9 +110,13 @@ class LeetcodeClient:
             ", ".join(inputs[i : i + num_of_inputs]) for i in range(0, len(inputs), num_of_inputs)
         ]
         tmp_description = []
+        example_started = False
         for line in data.description:
-            if "Output: " in line:
+            if re.match(r"\s*Example\s+[0-9]+:", line):
+                example_started = True
+            elif "Output: " in line and example_started:
                 data.outputs.append(line[8:])
+                example_started = False
             if len(line) > 100:
                 # split on commas or periods, while keeping them
                 split_line = re.split(r"(?<=[\.\,])\s*", line)
