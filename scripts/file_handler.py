@@ -57,17 +57,17 @@ def generate_files(
         data, is_new = lc.get_question_data(qid, title_slug, language, code)
     except ValueError as e:
         print(e.args)
-        os.remove(f"tmp{qid}.txt")
         signal.signal(signal.SIGINT, s)
         return
 
-    if is_new and data.inputs and data.outputs:
+    if is_new:
         # generate
         data.creation_time = timestamp
         file_handler = FileHandler(data, language)
         data.function_name = file_handler.get_function_name()
         data.file_path = file_handler.generate_source()
-        data.test_file_path = file_handler.generete_tests()
+        if data.inputs and data.outputs:
+            data.test_file_path = file_handler.generete_tests()
 
         args[qid] = data
         print(f"""The question "{qid}|{data.title}" was imported""")
