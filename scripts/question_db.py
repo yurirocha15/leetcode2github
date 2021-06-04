@@ -14,11 +14,11 @@ class QuestionData:
     internal_id: int = 0
     creation_time: float = 0.0
     difficulty: str = ""
-    function_name: str = ""
     file_path: str = ""
     test_file_path = ""
     question_template: str = ""
     raw_code: str = ""
+    function_name: List[str] = field(default_factory=list)
     description: List[str] = field(default_factory=list)
     inputs: List[str] = field(default_factory=list)
     outputs: List[str] = field(default_factory=list)

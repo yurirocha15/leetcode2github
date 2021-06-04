@@ -1,3 +1,4 @@
+import ast
 import os
 import re
 from typing import List
@@ -15,18 +16,19 @@ class PythonHandler(FileHandler):
     def set_question_data(self, question_data: QuestionData):
         self.question_data = question_data
 
-    def get_function_name(self) -> str:
+    def get_function_name(self) -> List[str]:
         """Returns the function name
 
         Returns:
-            str: the function name
+            List[str]: a list with all function names
         """
-        code = (
-            self.question_data.raw_code
-            if self.question_data.raw_code
-            else self.question_data.question_template
+        functions: List[str] = re.findall(
+            r"[^#\s*]\s+def\s+(.*?)\(self,", self.question_data.question_template
         )
-        return re.findall(r"    def (.*?)\(self,", code)[0]
+        if functions[0] == "__init__":
+            functions[0] = re.findall(r"^class\s+(.*?):", self.question_data.question_template)[0]
+        self.question_data.function_name = functions
+        return functions
 
     def generate_source(self) -> str:
         """Generates the source file
@@ -93,6 +95,19 @@ class PythonHandler(FileHandler):
             s.replace("null", "None").replace("true", "True").replace("false", "False")
             for s in self.question_data.outputs
         ]
+        inputs = self.question_data.inputs
+        outputs = self.question_data.outputs
+        if len(self.question_data.function_name) > 1:
+            inputs = []
+            outputs = []
+            for input, output in zip(self.question_data.inputs, self.question_data.outputs):
+                tmp_inputs = input.split(", ")
+                inputs.append([])
+                for tmp_input in tmp_inputs:
+                    inputs[-1].append(ast.literal_eval(tmp_input))
+                outputs.append(ast.literal_eval(output))
+        elif not self.question_data.function_name:
+            raise ValueError("No function name")
         with open(
             os.path.join("tests", f"test_{self.question_data.id}.py"),
             "a",
@@ -110,8 +125,20 @@ class PythonHandler(FileHandler):
             f.write("\n")
             f.write('@pytest.fixture(scope="session")\n')
             f.write(f"def init_variables_{self.question_data.id}():\n")
-            f.write(f"    from src.{self.question_data.file_path[4:-3]} import Solution\n")
-            f.write(f"    solution = Solution()\n")
+            if len(self.question_data.function_name) == 1:
+                f.write(f"    from src.{self.question_data.file_path[4:-3]} import Solution\n")
+                f.write(f"    solution = Solution()\n")
+            else:
+                try:
+                    f.write(
+                        f"    from src.{self.question_data.file_path[4:-3]} import {self.question_data.function_name[0]}\n"
+                    )
+                    f.write(
+                        f"    solution = {self.question_data.function_name[0]}({str(inputs[0][1][0])[1:-1]})\n"
+                    )
+                except Exception as e:
+                    print(e.args)
+                    print(self.question_data)
             f.write("\n")
             f.write(f"    def _init_variables_{self.question_data.id}():\n")
             f.write("        return solution\n")
@@ -119,20 +146,29 @@ class PythonHandler(FileHandler):
             f.write(f"    yield _init_variables_{self.question_data.id}\n")
             f.write("\n")
             f.write(f"class TestClass{self.question_data.id}:")
-            for i in range(len(self.question_data.inputs)):
+            for i in range(len(inputs)):
                 f.write("\n")
                 f.write(f"    def test_solution_{i}(self, init_variables_{self.question_data.id}):\n")
-                f.write(
-                    f"        assert"
-                    + (" not" if self.question_data.outputs[i] == "False" else "")
-                    + f" init_variables_{self.question_data.id}().{self.question_data.function_name}({self.question_data.inputs[i]})"
-                    + (
-                        f" == {self.question_data.outputs[i]}"
-                        if self.question_data.outputs[i] not in ["True", "False"]
-                        else ""
+                if len(self.question_data.function_name) == 1:
+                    f.write(
+                        f"        assert"
+                        + (" not" if outputs[i] == "False" else "")
+                        + f" init_variables_{self.question_data.id}().{self.question_data.function_name[0]}({inputs[i]})"
+                        + (f" == {outputs[i]}" if outputs[i] not in ["True", "False"] else "")
+                        + "\n"
                     )
-                    + "\n"
-                )
+                else:
+                    for input_func, input_val, output in zip(
+                        inputs[i][0][1:], inputs[i][1][1:], outputs[i][1:]
+                    ):
+                        f.write(
+                            f"        assert"
+                            + (" not" if output == "False" else "")
+                            + f" init_variables_{self.question_data.id}().{input_func}({str(input_val)[1:-1]})"
+                            + (f" == {output}" if output not in ["True", "False"] else "")
+                            + "\n"
+                        )
+
         return os.path.join("tests", f"test_{self.question_data.id}.py")
 
     def generate_submission_file(self) -> str:
@@ -143,7 +179,7 @@ class PythonHandler(FileHandler):
         """
         code: str = ""
         # regex to match main definition
-        match = r"""if\s+__name__\s+==\s+('|")__main__('|")\s*:\s*"""
+        match = r"""^if\s+__name__\s+==\s+('|")__main__('|")\s*:\s*"""
         with open(self.question_data.file_path, "r", encoding="UTF8") as f:
             for line in f:
                 if re.match(match, line):
@@ -165,7 +201,7 @@ class PythonHandler(FileHandler):
         lines = []
         for i, line in enumerate(raw_code.split("\n")):
             lines.append(line + "\n")
-            if re.match(r"    def (.*?)\(self,", line) and not is_solution:
+            if re.match(r"^\s+def\s+(.*?)\(self,", line) and not is_solution:
                 lines.append("        pass\n")
 
         return lines
