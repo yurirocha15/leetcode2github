@@ -25,15 +25,24 @@ def get_question(id: int):
     Args:
         id (int): the question id
     """
-    # get question data
     lc = LeetcodeClient()
+    qdb = QuestionDB()
+    qdb.load()
+
+    if qdb.check_if_exists(id):
+        print("Question already imported")
+        return
+
+    if not qdb.check_if_slug_is_known(id):
+        qdb.set_id_title_map(lc.get_id_title_map())
+        qdb.save()
+
+    # get question data
     args: Dict[int, QuestionData] = {}
-    generate_files(args, id, lc, time.time(), _LANGUAGE)
+    generate_files(args, id, qdb.get_title_from_id(id), lc, time.time(), _LANGUAGE)
 
     if id in args:
         # store data
-        qdb = QuestionDB()
-        qdb.load()
         qdb.add_question(args[id])
         qdb.save()
 
@@ -50,47 +59,15 @@ def submit_question(id: int):
     # create submit file
     if qdb.check_if_exists(id):
         file_handler = FileHandler(qdb.get_question(id), _LANGUAGE)
-        file_to_submit = file_handler.generate_submission_file()
+        code = file_handler.generate_submission_file()
 
         lc = LeetcodeClient()
         try:
-            lc.submit_question(file_to_submit)
+            lc.submit_question(code, qdb.get_question(id).internal_id, _LANGUAGE)
         except Exception as e:
             print(e.args)
-
-        os.remove(file_to_submit)
-
     else:
         print(f"Could not find the question with id {id}")
-
-
-def leetcode_login():
-    """Login to leetcode"""
-    home_folder = str(Path.home())
-    lc = LeetcodeClient()
-    # Logout. This erases the user.json file
-    lc.logout()
-    os_name = platform.system()
-    if os_name in ["Linux", "Darwin"]:
-        cmd = "mkdir -p "
-    elif os_name == "Windows":
-        cmd = "mkdir "
-    os.system(cmd + os.path.join(home_folder, ".lc", "leetcode"))
-    print("Make sure to login to leetcode on either chrome or firefox.")
-    try:
-        userid, leetcode_session, crsftoken = lc.get_parsed_cookies()
-    except ValueError as e:
-        print(e.args)
-    else:
-        with open(os.path.join(home_folder, ".lc", "leetcode", "user.json"), "w") as f:
-            f.write("{\n")
-            f.write(f'    "login": "{userid}",\n')
-            f.write('    "loginCSRF": "",\n')
-            f.write(f'    "sessionCSRF": "{crsftoken}",\n')
-            f.write(f'    "sessionId": "{leetcode_session}"\n')
-            f.write("}")
-        lc.login()
-        print(f"Logged in as {userid}")
 
 
 def get_all_submissions():
@@ -102,7 +79,6 @@ def get_all_submissions():
     last_key: str = ""
     offset: int = 0
     imported_cnt = 0
-    slug_to_id_map: Dict[str, int] = {}
 
     try:
         while has_next:
@@ -113,17 +89,17 @@ def get_all_submissions():
             submissions = lc.get_submission_list(last_key, offset)
             for submission in submissions["submissions_dump"]:
                 qid: int = -1
-                if submission["title_slug"] in slug_to_id_map:
-                    qid = slug_to_id_map[submission["title_slug"]]
+                if qdb.check_if_id_is_known(submission["title_slug"]):
+                    qid = qdb.get_id_from_title(submission["title_slug"])
+                else:
+                    qdb.set_id_title_map(lc.get_id_title_map())
+                    qdb.save()
+                    qid = qdb.get_id_from_title(submission["title_slug"])
                 if (
                     submission["status_display"] == "Accepted"
                     and submission["lang"] == _LANGUAGE
                     and not qdb.check_if_exists(qid)
                 ):
-                    if qid == -1:
-                        q_data = lc.scrap_question_data(submission["title_slug"], lc.get_cookies()[0])
-                        qid = int(q_data["data"]["question"]["questionFrontendId"])
-                        slug_to_id_map[submission["title_slug"]] = qid
                     if not qdb.check_if_exists(qid):
                         # pre-store the question
                         data = QuestionData(id=qid)
@@ -133,9 +109,11 @@ def get_all_submissions():
                             args=(
                                 ret_dict,
                                 qid,
+                                submission["title_slug"],
                                 lc,
                                 submission["timestamp"],
                                 _LANGUAGE,
+                                submission["code"],
                             ),
                         )
                         jobs.append(p)
@@ -191,5 +169,16 @@ def remove_question(id: int):
         print(f"The question {id} could not be found!")
 
 
+def get_all_questions():
+    lc = LeetcodeClient()
+    lc.get_all_questions_data(lc.get_cookies()[0])
+
+
 if __name__ == "__main__":
-    clize.run(get_question, submit_question, leetcode_login, get_all_submissions, remove_question)
+    clize.run(
+        get_question,
+        submit_question,
+        get_all_submissions,
+        remove_question,
+        get_all_questions,
+    )

@@ -3,11 +3,12 @@ import os
 import platform
 import re
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import browser_cookie3
 import requests
-from question_db import QuestionData, QuestionDB
+from bs4 import BeautifulSoup
+from question_db import IdTitleMap, QuestionData
 
 
 class LeetcodeClient:
@@ -15,95 +16,140 @@ class LeetcodeClient:
 
     def __init__(self):
         os_name = platform.system()
-        if os_name == "Linux":
-            self.binary_path = os.path.join("bin", "leetcode-cli", "linux", "leetcode-cli")
+        if os_name in ["Linux", "Darwin"]:
             self.divider = "/"
         elif os_name == "Windows":
-            self.binary_path = os.path.join("bin", "leetcode-cli", "windows", "leetcode-cli.exe")
             self.divider = "\\"
-        elif os_name == "Darwin":
-            self.binary_path = os.path.join("bin", "leetcode-cli", "macos", "leetcode-cli")
-            self.divider = "/"
 
-    def login(self):
-        """Login to leetcode using the leetcode-cli
+        self.cookies, self.csrftoken = self.get_cookies()
 
-        The file ~/.lc/leetcode/user.json needs to exist for this command to work
+    def get_cookies(self) -> Tuple[str, str]:
+        """Get the cookies from the browser
+
+        Returns:
+            Tuple[str, str]: the raw cookies and the csrftoken
         """
-        os.system(self.binary_path + " user -c")
+        url = "https://leetcode.com/profile/"
+        client = requests.session()
+        try:
+            browsers = (browser_cookie3.chrome(), browser_cookie3.firefox())
+        except browser_cookie3.BrowserCookieError as e:
+            print(e.args)
 
-    def logout(self):
-        """Logout from leetcode"""
-        os.system(self.binary_path + " user -L")
+        for browser in browsers:
+            try:
+                r = client.get(url, cookies=browser)
+                cookies = r.request.headers["Cookie"]
+                csrftoken = client.cookies["csrftoken"]
+            except:
+                continue
+            if csrftoken:
+                break
+
+        return cookies, csrftoken
+
+    def get_headers(self) -> Dict[str, str]:
+        """Return the headers needed to call leetcode api
+
+        Returns:
+            Dict[str, str]: the call headers
+        """
+        headers = {
+            "authority": "leetcode.com",
+            "pragma": "no-cache",
+            "cache-control": "no-cache",
+            "dnt": "1",
+            "sec-ch-ua-mobile": "?0",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "referer": "https://leetcode.com",
+            "origin": "https://leetcode.com",
+            "x-csrftoken": self.csrftoken,
+            "cookie": self.cookies,
+        }
+
+        return headers
 
     def get_question_data(
-        self, id: int, language: str, verbose: bool = False
+        self, id: int, title_slug: str, language: str, code: Optional[str] = ""
     ) -> Tuple[QuestionData, bool]:
         """Gets the data from a question
 
         Args:
             id (int): the question id
-            verbose (bool): if true print information to the terminal
+            title_slug (str): the question title
+            language str: the language to download the code
+            code (Optional[str]): the question solution
 
         Returns:
             QuestionData: The data needed to generate the question files
         """
-        qdb = QuestionDB()
-        qdb.load()
-        question_data = qdb.get_data()
-        if id in question_data:
-            print("Question already imported")
-            return question_data[id], False
+
+        leetcode_question_data = self.scrap_question_data(title_slug)
 
         data = QuestionData(id=id, creation_time=time.time())
-        os.system(self.binary_path + f" show {id} -gx -l {language} -o ./src > tmp{id}.txt")
-        with open(f"tmp{id}.txt", "r", encoding="UTF8") as f:
-            for i, line in enumerate(f):
-                if verbose:
-                    print(line)
-                if "[ERROR]" in line:
-                    raise ValueError(line)
-
-                if i == 0:
-                    data.title = " ".join(line.split()[1:])
-                elif "Source Code:" in line:
-                    data.file_path = line.split()[3]
-                elif "https://leetcode" in line:
-                    data.url = line[:-1]
-                elif "Input: " in line:
-                    data.inputs.append(line[7:-1].replace("null", "None"))
-                elif "Output: " in line:
-                    data.outputs.append(line[8:-1].replace("null", "None"))
-                elif line[0] == "*":
-                    words = line.split()
-                    if words[1] in ["Easy", "Medium", "Hard"]:
-                        data.difficulty = words[1]
-
-        os.remove(f"tmp{id}.txt")
-        split_path = data.file_path.split(self.divider)
-        split_path[-1] = ("leetcode_" + split_path[-1]).replace(".", "_", 1).replace("-", "_")
-        new_file_path = os.path.join(*split_path)
-        os.rename(data.file_path, new_file_path)
-        data.file_path = new_file_path
-
-        # get cookies
-        cookies, _, _ = self.get_cookies()
-
-        leetcode_question_data = self.scrap_question_data(data.url.split("/")[-3], cookies)
-        data.categories = leetcode_question_data["data"]["question"]["topicTags"]
-        data.raw_code = self.get_latest_submission(
-            leetcode_question_data["data"]["question"]["questionId"], cookies, language
+        data.internal_id = int(leetcode_question_data["data"]["question"]["questionId"])
+        data.title = leetcode_question_data["data"]["question"]["title"]
+        data.url = (
+            "https://leetcode.com/problems/" + leetcode_question_data["data"]["question"]["titleSlug"]
         )
-        tmp_function_name = re.findall(r"    def (.*?)\(self,", data.raw_code)
-        if tmp_function_name:
-            data.function_name = tmp_function_name[0]
-        else:
-            with open(data.file_path, "r", encoding="UTF8") as f:
-                text = f.read()
-                data.function_name = re.findall(r"    def (.*?)\(self,", text)[0]
+        data.difficulty = leetcode_question_data["data"]["question"]["difficulty"]
+        data.question_template = next(
+            code["code"]
+            for code in leetcode_question_data["data"]["question"]["codeSnippets"]
+            if code["langSlug"] == language
+        )
+        data.categories = leetcode_question_data["data"]["question"]["topicTags"]
+        soup = BeautifulSoup(
+            leetcode_question_data["data"]["question"]["content"], features="html.parser"
+        )
+        data.description = soup.get_text().replace("\r\n", "\n").split("\n")
+        num_of_inputs = len(leetcode_question_data["data"]["question"]["sampleTestCase"].split("\n"))
+        inputs = leetcode_question_data["data"]["question"]["exampleTestcases"].split("\n")
+        data.inputs = [
+            ", ".join(inputs[i : i + num_of_inputs]) for i in range(0, len(inputs), num_of_inputs)
+        ]
+        tmp_description = []
+        example_started = False
+        for idx, line in enumerate(data.description):
+            if re.match(r"\s*Example\s*[0-9]*:", line):
+                example_started = True
+            elif "Output: " in line and example_started:
+                data.outputs.append(line[8:])
+                example_started = False
+            elif line == "Output" and example_started:
+                data.outputs.append(data.description[idx + 1].strip())
+                example_started = False
+
+            if len(line) > 100:
+                # split on commas or periods, while keeping them
+                split_line = re.split(r"(?<=[\.\,])\s*", line)
+                tmp_line = ""
+                for phrase in split_line:
+                    if len(tmp_line) + len(phrase) <= 100:
+                        tmp_line += phrase
+                    else:
+                        tmp_description.append(tmp_line)
+                        tmp_line = ""
+                if tmp_line:
+                    tmp_description.append(tmp_line)
+            else:
+                tmp_description.append(line)
+
+        data.description = tmp_description
+
+        data.file_path = os.path.join(
+            "src",
+            f"leetcode_{data.id}_"
+            + leetcode_question_data["data"]["question"]["titleSlug"].replace("-", "_"),
+        )
+
+        if code:
+            data.raw_code = code
+
         return data, True
 
-    def scrap_question_data(self, question_name: str, cookies: str) -> List[Dict[str, Any]]:
+    def scrap_question_data(self, question_name: str) -> List[Dict[str, Any]]:
         """Query a question information
 
         Args:
@@ -121,113 +167,125 @@ class LeetcodeClient:
                 "query": "query questionData($titleSlug: String) {\n  question(titleSlug: $titleSlug) {\n    questionId\n    questionFrontendId\n    boundTopicId\n    title\n    titleSlug\n    content\n    translatedTitle\n    translatedContent\n    isPaidOnly\n    difficulty\n    likes\n    dislikes\n    isLiked\n    similarQuestions\n    exampleTestcases\n    contributors {\n      username\n      profileUrl\n      avatarUrl\n      __typename\n    }\n    topicTags {\n      name\n      slug\n      translatedName\n      __typename\n    }\n    companyTagStats\n    codeSnippets {\n      lang\n      langSlug\n      code\n      __typename\n    }\n    stats\n    hints\n    solution {\n      id\n      canSeeDetail\n      paidOnly\n      hasVideoSolution\n      paidOnlyVideo\n      __typename\n    }\n    status\n    sampleTestCase\n    metaData\n    judgerAvailable\n    judgeType\n    mysqlSchemas\n    enableRunCode\n    enableTestMode\n    enableDebugger\n    envInfo\n    libraryUrl\n    adminUrl\n    __typename\n  }\n}\n",
             }
         )
-        headers = {
-            "authority": "leetcode.com",
-            "pragma": "no-cache",
-            "cache-control": "no-cache",
-            "dnt": "1",
-            "sec-ch-ua-mobile": "?0",
-            "content-type": "application/json",
-            "accept": "*/*",
-            "origin": "https://leetcode.com",
-            "cookie": cookies,
-        }
-        response = requests.request("POST", url, headers=headers, data=payload)
+
+        response = requests.request("POST", url, headers=self.get_headers(), data=payload)
         return json.loads(response.text)
 
-    def get_latest_submission(self, qid: str, cookies: str, language: str) -> str:
+    def get_latest_submission(self, qid: str, language: str) -> str:
+        """Get the latest submission for a question
+
+        Args:
+            qid (str): the question id
+            cookies (str): leetcode cookies
+            language (str): the code language
+
+        Returns:
+            str: the submitted code
+        """
         url = f"https://leetcode.com/submissions/latest/?qid={qid}&lang={language}"
 
         payload = {}
-        headers = {
-            "authority": "leetcode.com",
-            "pragma": "no-cache",
-            "cache-control": "no-cache",
-            "accept": "application/json",
-            "dnt": "1",
-            "sec-ch-ua-mobile": "?0",
-            "origin": "https://leetcode.com",
-            "accept-language": "en-US,en;q=0.9",
-            "cookie": cookies,
-        }
         raw_code = ""
         try:
-            response = requests.request("GET", url, headers=headers, data=payload)
+            response = requests.request("GET", url, headers=self.get_headers(), data=payload)
             raw_code = json.loads(response.text)["code"]
         except Exception as e:
             print(e.args)
         return raw_code
 
-    def get_cookies(self) -> Tuple[str, str, str]:
-        url = "https://leetcode.com/profile/"
-        client = requests.session()
-        try:
-            browsers = (browser_cookie3.chrome(), browser_cookie3.firefox())
-        except browser_cookie3.BrowserCookieError as e:
-            print(e.args)
-
-        for browser in browsers:
-            try:
-                r = client.get(url, cookies=browser)
-                cookies = r.request.headers["Cookie"]
-                csrftoken = client.cookies["csrftoken"]
-                text = r.text
-            except:
-                continue
-            if csrftoken:
-                break
-
-        return cookies, csrftoken, text
-
-    def get_parsed_cookies(self) -> Tuple[str, str, str]:
-        """Gets the cookies from the browser
-
-        Raises:
-            ValueError: if the user is not logger either on chrome or firefox
-
-        Returns:
-            Tuple[str, str, str]: the username and the cookies
-        """
-        cookies, csrftoken, text = self.get_cookies()
-        leetcode_session = re.findall(r"LEETCODE_SESSION=(.*?);|$", cookies, flags=re.DOTALL)[0]
-        username = re.findall(r"username: '(.*?)',", text, flags=re.DOTALL)[0]
-
-        if not leetcode_session or not csrftoken or not username:
-            raise ValueError(
-                "ERROR: Could not find the cookies neither on Chrome nor Firefox."
-                + " Make sure to login to leetcode in one of these browsers."
-            )
-
-        return username, leetcode_session, csrftoken
-
-    def submit_question(self, file: str):
+    def submit_question(self, code: str, internal_id: str, language: str):
         """Submit question to Leetcode
 
         Args:
-            file (str): the path to the file which will be submited
+            code (str): the code which will be submitted
+            internal_id (str): the question "questionId". (different from "frontend_id")
+            language (str): the language of the code
         """
-        os.system(self.binary_path + " submit " + file)
+
+        url = "https://leetcode.com/problems/two-sum/submit/"
+
+        payload = json.dumps(
+            {
+                "question_id": internal_id,
+                "lang": language,
+                "typed_code": code,
+            }
+        )
+
+        response = requests.request("POST", url, headers=self.get_headers(), data=payload)
+        submission_id: int = json.loads(response.text)["submission_id"]
+        print("Waiting for submission results...")
+        url = f"https://leetcode.com/submissions/detail/{submission_id}/check/"
+
+        payload = {}
+        status = ""
+        while status != "SUCCESS":
+            response = requests.request("GET", url, headers=self.get_headers(), data=payload)
+            submission_result = json.loads(response.text)
+            status = submission_result["state"]
+            time.sleep(1)
+
+        print(f'Result: {submission_result["status_msg"]}')
+        if submission_result["status_code"] == 10:
+            print(
+                f'Total Runtime: {submission_result["status_runtime"]} (Better than {submission_result["runtime_percentile"]:.2f}%)'
+            )
+            print(
+                f'Total Memory: {submission_result["status_memory"]} (Better than {submission_result["memory_percentile"]:.2f}%)'
+            )
+        elif submission_result["status_code"] == 11:
+            print(f'Last Input: {submission_result["input_formatted"]}')
+            print(f'Expected Output: {submission_result["expected_output"]}')
+            print(f'Code Output: {submission_result["code_output"]}')
+        elif submission_result["status_code"] == 14:
+            nl = "\n"
+            print(f'Last Input: {submission_result["last_testcase"].replace(nl, " ")}')
+            print(f'Expected Output: {submission_result["expected_output"]}')
+            print(f'Code Output: {submission_result["code_output"]}')
+        elif submission_result["status_code"] == 15:
+            print(f'Runtime Error: {submission_result["runtime_error"]}')
 
     def get_submission_list(self, last_key: str = "", offset: int = 0) -> Dict[str, Any]:
-        cookies, _, _ = self.get_cookies()
+        """Get a list with 20 submissions
+
+        Args:
+            last_key (str, optional): the key of the last query. Defaults to "".
+            offset (int, optional): the offset (used to query older values). Defaults to 0.
+
+        Returns:
+            Dict[str, Any]: the query response
+        """
         url = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey={last_key}"
 
         payload = {}
-        headers = {
-            "authority": "leetcode.com",
-            "pragma": "no-cache",
-            "cache-control": "no-cache",
-            "accept": "application/json",
-            "dnt": "1",
-            "sec-ch-ua-mobile": "?0",
-            "origin": "https://leetcode.com",
-            "accept-language": "en-US,en;q=0.9",
-            "cookie": cookies,
-        }
 
-        response = requests.request("GET", url, headers=headers, data=payload)
+        response = requests.request("GET", url, headers=self.get_headers(), data=payload)
 
         return json.loads(response.text)
+
+    def get_id_title_map(self) -> IdTitleMap:
+        """Get a dictionary that maps the id to the question title slug
+
+        Returns:
+            IdTitleMap: maps the id to the title slug
+        """
+        url = "https://leetcode.com/api/problems/all/"
+
+        payload = {}
+
+        response = requests.request("GET", url, headers=self.get_headers(), data=payload)
+
+        id_title_map: IdTitleMap = IdTitleMap()
+        for stat in json.loads(response.text)["stat_status_pairs"]:
+            if "frontend_question_id" in stat["stat"] and "question__title_slug" in stat["stat"]:
+                id_title_map.id_to_title[int(stat["stat"]["frontend_question_id"])] = stat["stat"][
+                    "question__title_slug"
+                ]
+                id_title_map.title_to_id[stat["stat"]["question__title_slug"]] = int(
+                    stat["stat"]["frontend_question_id"]
+                )
+
+        return id_title_map
 
 
 if __name__ == "__main__":
