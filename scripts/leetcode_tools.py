@@ -1,14 +1,11 @@
 import os
-import platform
-import signal
 import time
-from multiprocessing import Manager, Process
+from multiprocessing import Process
 from multiprocessing.managers import SyncManager
-from pathlib import Path
-from re import T
-from typing import Any, Dict, final
+from typing import Dict, Optional
 
 import clize
+from config_manager import ConfigManager
 from file_handler import FileHandler, generate_files
 from leetcode_client import LeetcodeClient
 from my_utils import mgr_init
@@ -174,6 +171,13 @@ def get_all_questions():
     lc.get_all_questions_data(lc.get_cookies()[0])
 
 
+def reset_config(*, source_repository: "s" = "", language: "l" = "python3"):
+    cm = ConfigManager()
+    if not source_repository:
+        source_repository = os.getcwd()
+    cm.reset_config(source_repository, language)
+
+
 if __name__ == "__main__":
     clize.run(
         get_question,
@@ -181,4 +185,5 @@ if __name__ == "__main__":
         get_all_submissions,
         remove_question,
         get_all_questions,
+        reset_config,
     )
