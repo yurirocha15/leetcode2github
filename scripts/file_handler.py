@@ -14,7 +14,9 @@ class FileHandler(ABC):
         subclasses: Dict[str, FileHandler] = {
             l: subclass for subclass in cls.__subclasses__() for l in subclass.languages
         }
-        subclass = subclasses[language.lower()]
+        subclass = DefaultHandler
+        if language.lower() in subclasses:
+            subclass = subclasses[language.lower()]
         instance = super(FileHandler, subclass).__new__(subclass)
         instance.set_question_data(data)
         return instance
@@ -62,6 +64,7 @@ def generate_files(
 
     if is_new:
         # generate
+        data.language = language
         data.creation_time = timestamp
         file_handler = FileHandler(data, language)
         data.function_name = file_handler.get_function_name()
@@ -76,4 +79,5 @@ def generate_files(
 
 # child classes (need to be imported in order to be instantiated)
 
+from default_handler import DefaultHandler
 from python_handler import PythonHandler
