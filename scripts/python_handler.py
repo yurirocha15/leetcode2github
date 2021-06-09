@@ -36,15 +36,17 @@ class PythonHandler(FileHandler):
         Returns:
             str: the path to the test file
         """
+        comment: str = self.conversions[self.question_data.language]["comment"]
+        extension: str = self.conversions[self.question_data.language]["extension"]
         lines: List[str] = (
             [
-                f"#\n",
-                f"# [{self.question_data.id}] {self.question_data.title}\n",
-                f"# Difficulty: {self.question_data.difficulty}\n",
-                f"# {self.question_data.url}\n",
-                f"#\n",
+                comment + f"\n",
+                comment + f" [{self.question_data.id}] {self.question_data.title}\n",
+                comment + f" Difficulty: {self.question_data.difficulty}\n",
+                comment + f" {self.question_data.url}\n",
+                comment + f"\n",
             ]
-            + ["# " + line + "\n" for line in self.question_data.description]
+            + [comment + " " + line + "\n" for line in self.question_data.description]
             + [
                 "\n",
                 "\n",
@@ -57,7 +59,7 @@ class PythonHandler(FileHandler):
         )
         code_lines = self.parse_raw_code(code, is_solution)
         lines.extend([l for l in code_lines])
-        self.question_data.file_path += ".py"
+        self.question_data.file_path += extension
 
         with open(self.question_data.file_path, "w", encoding="UTF8") as f:
             f.writelines(lines)
@@ -76,7 +78,9 @@ class PythonHandler(FileHandler):
             f.write('if __name__ == "__main__":\n')
             f.write("    import pytest\n")
             f.write("    import os\n")
-            f.write(f"    pytest.main([os.path.join('tests', 'test_{self.question_data.id}.py')])\n")
+            f.write(
+                f"    pytest.main([os.path.join('tests', 'test_{self.question_data.id}{extension}')])\n"
+            )
             f.write("")
 
         return self.question_data.file_path
@@ -87,6 +91,7 @@ class PythonHandler(FileHandler):
         Returns:
             str: the path to the test file
         """
+        extension: str = self.conversions[self.question_data.language]["extension"]
         self.question_data.inputs = [
             s.replace("null", "None").replace("true", "True").replace("false", "False")
             for s in self.question_data.inputs
@@ -109,7 +114,7 @@ class PythonHandler(FileHandler):
         elif not self.question_data.function_name:
             raise ValueError("No function name")
         with open(
-            os.path.join("tests", f"test_{self.question_data.id}.py"),
+            os.path.join("tests", f"test_{self.question_data.id}{extension}"),
             "a",
             encoding="UTF8",
         ) as f:
@@ -169,7 +174,7 @@ class PythonHandler(FileHandler):
                             + "\n"
                         )
 
-        return os.path.join("tests", f"test_{self.question_data.id}.py")
+        return os.path.join("tests", f"test_{self.question_data.id}{extension}")
 
     def generate_submission_file(self) -> str:
         """Generates the submission file

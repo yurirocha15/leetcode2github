@@ -18,6 +18,7 @@ class QuestionData:
     test_file_path = ""
     question_template: str = ""
     raw_code: str = ""
+    language: str = ""
     function_name: List[str] = field(default_factory=list)
     description: List[str] = field(default_factory=list)
     inputs: List[str] = field(default_factory=list)
