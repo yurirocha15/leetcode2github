@@ -1,4 +1,4 @@
-# leetcode-practice-python
+# leet2git
 This repository is a template which automates the boilerplate code when adding solutions to leetcode problems.
 
 Using a single command, one can get the question information, generate the python executable template, generate the test files, and update the table at the end of the README.
