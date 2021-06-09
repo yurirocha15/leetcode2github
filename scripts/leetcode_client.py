@@ -244,6 +244,8 @@ class LeetcodeClient:
             print(f'Code Output: {submission_result["code_output"]}')
         elif submission_result["status_code"] == 15:
             print(f'Runtime Error: {submission_result["runtime_error"]}')
+        elif submission_result["status_code"] == 20:
+            print(f'Compile Error: {submission_result["compile_error"]}')
 
     def get_submission_list(self, last_key: str = "", offset: int = 0) -> Dict[str, Any]:
         """Get a list with 20 submissions
