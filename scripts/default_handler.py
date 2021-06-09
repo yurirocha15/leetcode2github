@@ -12,25 +12,6 @@ class DefaultHandler(FileHandler):
 
     languages = []
 
-    conversions = {
-        "bash": {"extension": ".sh", "comment": "#"},
-        "c": {"extension": ".c", "comment": "//"},
-        "cpp": {"extension": ".cpp", "comment": "//"},
-        "csharp": {"extension": ".cs", "comment": "//"},
-        "golang": {"extension": ".go", "comment": "//"},
-        "java": {"extension": ".java", "comment": "//"},
-        "javascript": {"extension": ".js", "comment": "//"},
-        "kotlin": {"extension": ".kt", "comment": "//"},
-        "mysql": {"extension": ".sql", "comment": "--"},
-        "php": {"extension": ".php", "comment": "//"},
-        "python": {"extension": ".py", "comment": "#"},
-        "python3": {"extension": ".py", "comment": "#"},
-        "ruby": {"extension": ".rb", "comment": "#"},
-        "rust": {"extension": ".rs", "comment": "//"},
-        "scala": {"extension": ".scala", "comment": "//"},
-        "swift": {"extension": ".swift", "comment": "//"},
-    }
-
     def set_question_data(self, question_data: QuestionData):
         self.question_data = question_data
 

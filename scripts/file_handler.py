@@ -10,6 +10,25 @@ T = TypeVar("T", bound="FileHandler")
 
 
 class FileHandler(ABC):
+    conversions = {
+        "bash": {"extension": ".sh", "comment": "#"},
+        "c": {"extension": ".c", "comment": "//"},
+        "cpp": {"extension": ".cpp", "comment": "//"},
+        "csharp": {"extension": ".cs", "comment": "//"},
+        "golang": {"extension": ".go", "comment": "//"},
+        "java": {"extension": ".java", "comment": "//"},
+        "javascript": {"extension": ".js", "comment": "//"},
+        "kotlin": {"extension": ".kt", "comment": "//"},
+        "mysql": {"extension": ".sql", "comment": "--"},
+        "php": {"extension": ".php", "comment": "//"},
+        "python": {"extension": ".py", "comment": "#"},
+        "python3": {"extension": ".py", "comment": "#"},
+        "ruby": {"extension": ".rb", "comment": "#"},
+        "rust": {"extension": ".rs", "comment": "//"},
+        "scala": {"extension": ".scala", "comment": "//"},
+        "swift": {"extension": ".swift", "comment": "//"},
+    }
+
     def __new__(cls: Type[T], data: QuestionData, language: str) -> T:
         subclasses: Dict[str, FileHandler] = {
             l: subclass for subclass in cls.__subclasses__() for l in subclass.languages
@@ -20,6 +39,17 @@ class FileHandler(ABC):
         instance = super(FileHandler, subclass).__new__(subclass)
         instance.set_question_data(data)
         return instance
+
+    def check_if_exists(self, language: str) -> bool:
+        """Check if there is a handler for a given language
+
+        Args:
+            language (str): a programming language
+
+        Returns:
+            bool: true if there is a handler for the language
+        """
+        return language.lower() in self.conversions
 
     @abstractmethod
     def set_question_data(self, question_data: QuestionData):
