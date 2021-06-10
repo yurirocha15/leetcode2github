@@ -3,7 +3,7 @@ import os
 import pickle
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Union
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -35,9 +35,9 @@ class IdTitleMap:
 class QuestionDB:
     """Handles the question data"""
 
-    def __init__(self):
-        self.db_file = "./.question_data.pkl"
-        self.id_title_map_file = "./.id_title_map.pkl"
+    def __init__(self, config: Dict[str, Any]):
+        self.db_file = os.path.join(config["data_path"], ".question_data.pkl")
+        self.id_title_map_file = os.path.join(config["data_path"], ".id_title_map.pkl")
         self.question_data_dict: Dict[int, QuestionData] = {}
         self.id_title_map: IdTitleMap = IdTitleMap()
 

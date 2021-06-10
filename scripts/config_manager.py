@@ -16,6 +16,8 @@ class ConfigManager:
         self._config_file = os.path.join(self._config_path, "config.json")
         os.makedirs(self._config_path, exist_ok=True)
         os.makedirs(self._data_path, exist_ok=True)
+        if not os.path.isfile(self._config_file):
+            self.reset_config("")
 
     def get_config(self) -> Dict[str, Any]:
         """Return the user configuration

@@ -1,6 +1,7 @@
+import os
 from dataclasses import dataclass, field
 from functools import reduce
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from question_db import QuestionData, QuestionDB
 
@@ -15,8 +16,10 @@ class ReadmeTable:
 class ReadmeHandler:
     """Updates the README with the solved questions"""
 
-    def __init__(self):
-        self.readme_file = "QUESTIONS.md"
+    def __init__(self, config: Dict[str, Any]):
+        self.readme_file: str = os.path.join(config["source_path"], "QUESTIONS.md")
+        self.print_categories: bool = config["readme"]["show_category"]
+        self.print_difficulty: bool = config["readme"]["show_difficulty"]
 
     def build_readme(self, question_list: List[QuestionData]):
         """Updates the README file
@@ -45,22 +48,30 @@ class ReadmeHandler:
             fields=["ID", "Problem", "Leetcode ID", "Categories", "Difficulty"],
         )
         for question in question_list:
+            if self.print_difficulty:
+                difficulty_str = f"[{question.difficulty}](#{question.difficulty})"
+            else:
+                difficulty_str = question.difficulty
             categories_str = ""
             for c in question.categories:
-                categories_str += f"[{c['name']}](#{c['slug']}), "
-                if c["slug"] not in category_tables:
-                    category_tables[c["slug"]] = ReadmeTable(
-                        title=f"""<a name="{c['slug']}"></a>{c['name']}""",
-                        fields=["ID", "Problem", "Leetcode ID", "Difficulty"],
+                if self.print_categories:
+                    categories_str += f"[{c['name']}](#{c['slug']}), "
+                    if c["slug"] not in category_tables:
+                        category_tables[c["slug"]] = ReadmeTable(
+                            title=f"""<a name="{c['slug']}"></a>{c['name']}""",
+                            fields=["ID", "Problem", "Leetcode ID", "Difficulty"],
+                        )
+                    category_tables[c["slug"]].values.append(
+                        [
+                            str(len(category_tables[c["slug"]].values) + 1),
+                            f"[{question.title}]({question.file_path})",
+                            f"[{question.id}]({question.url})",
+                            difficulty_str,
+                        ]
                     )
-                category_tables[c["slug"]].values.append(
-                    [
-                        str(len(category_tables[c["slug"]].values) + 1),
-                        f"[{question.title}]({question.file_path})",
-                        f"[{question.id}]({question.url})",
-                        f"[{question.difficulty}](#{question.difficulty})",
-                    ]
-                )
+                else:
+                    categories_str += c["name"] + ", "
+
             categories_str = categories_str[:-2]
             if not question.difficulty:
                 question.difficulty = "Easy"
@@ -78,7 +89,7 @@ class ReadmeHandler:
                     f"[{question.title}]({question.file_path})",
                     f"[{question.id}]({question.url})",
                     categories_str,
-                    f"[{question.difficulty}](#{question.difficulty})",
+                    difficulty_str,
                 ]
             )
 
@@ -101,8 +112,10 @@ class ReadmeHandler:
 
             f.write(f"# Table of Contents\n")
             f.write(f"[{main_table.title}](#summary)\n")
-            f.write(f"[Difficulty](#difficulty)\n")
-            f.write(f"[Categories](#categories)\n")
+            if self.print_difficulty:
+                f.write(f"[Difficulty](#difficulty)\n")
+            if self.print_categories:
+                f.write(f"[Categories](#categories)\n")
 
             f.write(f"# <a name='summary'></a>{main_table.title}\n")
             f.write("\n")
@@ -113,28 +126,32 @@ class ReadmeHandler:
                 f.write("|" + "|".join(value) + "|\n")
 
             f.write("\n")
-            f.write("# <a name='difficulty'></a>Difficulty\n")
-            for difficulty in ("Easy", "Medium", "Hard"):
-                f.write(f"## {difficulty_tables[difficulty].title}\n")
-                f.write("\n")
-                f.write("|" + "|".join(difficulty_tables[difficulty].fields) + "|\n")
-                f.write(
-                    "|:--:|"
-                    + "|".join(["--" for _ in range(len(difficulty_tables[difficulty].fields) - 1)])
-                    + "|\n"
-                )
-                for value in difficulty_tables[difficulty].values:
-                    f.write("|" + "|".join(value) + "|\n")
+            if self.print_difficulty:
+                f.write("# <a name='difficulty'></a>Difficulty\n")
+                for difficulty in ("Easy", "Medium", "Hard"):
+                    f.write(f"## {difficulty_tables[difficulty].title}\n")
+                    f.write("\n")
+                    f.write("|" + "|".join(difficulty_tables[difficulty].fields) + "|\n")
+                    f.write(
+                        "|:--:|"
+                        + "|".join(["--" for _ in range(len(difficulty_tables[difficulty].fields) - 1)])
+                        + "|\n"
+                    )
+                    for value in difficulty_tables[difficulty].values:
+                        f.write("|" + "|".join(value) + "|\n")
 
-            f.write("\n")
-            f.write("# <a name='categories'></a>Categories\n")
-            for table in sorted(category_tables.items()):
-                f.write(f"## {table[1].title}\n")
                 f.write("\n")
-                f.write("|" + "|".join(table[1].fields) + "|\n")
-                f.write("|:--:|" + "|".join(["--" for _ in range(len(table[1].fields) - 1)]) + "|\n")
-                for value in table[1].values:
-                    f.write("|" + "|".join(value) + "|\n")
+            if self.print_categories:
+                f.write("# <a name='categories'></a>Categories\n")
+                for table in sorted(category_tables.items()):
+                    f.write(f"## {table[1].title}\n")
+                    f.write("\n")
+                    f.write("|" + "|".join(table[1].fields) + "|\n")
+                    f.write(
+                        "|:--:|" + "|".join(["--" for _ in range(len(table[1].fields) - 1)]) + "|\n"
+                    )
+                    for value in table[1].values:
+                        f.write("|" + "|".join(value) + "|\n")
 
 
 if __name__ == "__main__":
