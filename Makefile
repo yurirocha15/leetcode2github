@@ -13,6 +13,9 @@ get-question:
 remove-question:
 	python scripts/leet2git.py remove-question $(ID)
 
+reset:
+	python scripts/leet2git.py reset-config
+
 setup:
 	python -m pip install -r requirements.txt
 	pre-commit install
