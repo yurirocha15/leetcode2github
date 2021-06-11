@@ -3,22 +3,25 @@ format:
 	black --line-length 104 .
 
 get-all-submissions:
-	python scripts/leetcode_tools.py get-all-submissions
+	python scripts/leet2git.py get-all-submissions
 	make format
 
 get-question:
-	python scripts/leetcode_tools.py get-question $(ID)
+	python scripts/leet2git.py get-question $(ID)
 	make format
 
 remove-question:
-	python scripts/leetcode_tools.py remove-question $(ID)
+	python scripts/leet2git.py remove-question $(ID)
+
+reset:
+	python scripts/leet2git.py reset-config
 
 setup:
 	python -m pip install -r requirements.txt
 	pre-commit install
 
 submit-question:
-	python scripts/leetcode_tools.py submit-question $(ID)
+	python scripts/leet2git.py submit-question $(ID)
 
 test-solutions:
 	env PYTHONPATH=src pytest tests -s --verbose --cov=src --cov-report=html --cov-report=term-missing --suppress-no-test-exit-code
