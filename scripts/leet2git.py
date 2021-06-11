@@ -2,9 +2,9 @@ import os
 import time
 from multiprocessing import Process
 from multiprocessing.managers import SyncManager
-from typing import Dict, Optional
+from typing import Dict
 
-import clize
+import click
 from config_manager import ConfigManager
 from file_handler import FileHandler, generate_files
 from leetcode_client import LeetcodeClient
@@ -13,12 +13,20 @@ from question_db import QuestionData, QuestionDB
 from readme_handler import ReadmeHandler
 
 
+@click.group()
+def leet2git():
+    pass
+
+
+@leet2git.command()
+@click.argument("id", type=int)
 def get_question(id: int):
     """Generates all the files for a question
 
     Args:
         id (int): the question id
     """
+    print(type(id))
     cm = ConfigManager()
     config = cm.get_config()
     lc = LeetcodeClient()
@@ -47,6 +55,8 @@ def get_question(id: int):
         rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
 
 
+@leet2git.command()
+@click.argument("id", type=int)
 def submit_question(id: int):
     """Submit a question to Leetcode
 
@@ -73,6 +83,7 @@ def submit_question(id: int):
         print(f"Could not find the question with id {id}")
 
 
+@leet2git.command()
 def get_all_submissions():
     """Get all solutions and generate their files"""
     cm = ConfigManager()
@@ -155,6 +166,8 @@ def get_all_submissions():
     print(f"In total, {imported_cnt} questions were imported!")
 
 
+@leet2git.command()
+@click.argument("id", type=int)
 def remove_question(id: int):
     """Delete a question and its files
 
@@ -181,9 +194,14 @@ def remove_question(id: int):
         print(f"The question {id} could not be found!")
 
 
-def reset_config(*, source_repository: "s" = "", language: "l" = "python3"):
+@leet2git.command()
+@click.option(
+    "--source-repository", "-s", default="", help="the path to the folder where the code will be saved"
+)
+@click.option("--language", "-l", default="python3", help="the default language")
+def reset_config(*, source_repository: str, language: str):
     """Reset the configuration file
-
+    \f
     Args:
         source_repository (s, optional): the path to the folder where the code will be saved. Defaults to "".
         language (l, optional): the default language. Defaults to "python3".
@@ -197,10 +215,4 @@ def reset_config(*, source_repository: "s" = "", language: "l" = "python3"):
 
 
 if __name__ == "__main__":
-    clize.run(
-        get_question,
-        submit_question,
-        get_all_submissions,
-        remove_question,
-        reset_config,
-    )
+    leet2git()
