@@ -48,6 +48,7 @@ class ReadmeHandler:
             fields=["ID", "Problem", "Leetcode ID", "Categories", "Difficulty"],
         )
         for question in question_list:
+            difficulty_str = ""
             if self.print_difficulty:
                 difficulty_str = f"[{question.difficulty}](#{question.difficulty})"
             else:
@@ -155,7 +156,11 @@ class ReadmeHandler:
 
 
 if __name__ == "__main__":
-    qdb = QuestionDB()
+    from config_manager import ConfigManager
+
+    cm = ConfigManager()
+    config = cm.get_config()
+    qdb = QuestionDB(config)
     qdb.load()
-    rh = ReadmeHandler()
+    rh = ReadmeHandler(config)
     rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
