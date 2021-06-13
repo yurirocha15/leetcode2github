@@ -3,8 +3,8 @@ import signal
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Type, TypeVar
 
-from leetcode_client import LeetcodeClient
-from question_db import QuestionData
+from leet2git.leetcode_client import LeetcodeClient
+from leet2git.question_db import QuestionData
 
 T = TypeVar("T", bound="FileHandler")
 
@@ -109,5 +109,5 @@ def generate_files(
 
 # child classes (need to be imported in order to be instantiated)
 
-from default_handler import DefaultHandler
-from python_handler import PythonHandler
+from leet2git.default_handler import DefaultHandler
+from leet2git.python_handler import PythonHandler

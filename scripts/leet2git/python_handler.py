@@ -4,8 +4,8 @@ import re
 from typing import List
 
 from autoimport import fix_files
-from file_handler import FileHandler
-from question_db import QuestionData
+from leet2git.file_handler import FileHandler
+from leet2git.question_db import QuestionData
 
 
 class PythonHandler(FileHandler):

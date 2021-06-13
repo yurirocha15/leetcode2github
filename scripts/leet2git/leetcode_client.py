@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import browser_cookie3
 import requests
 from bs4 import BeautifulSoup
-from question_db import IdTitleMap, QuestionData
+from leet2git.question_db import IdTitleMap, QuestionData
 
 
 class LeetcodeClient:

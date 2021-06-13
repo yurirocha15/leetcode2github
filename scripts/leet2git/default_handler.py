@@ -3,8 +3,8 @@ import os
 import re
 from typing import List
 
-from file_handler import FileHandler
-from question_db import QuestionData
+from leet2git.file_handler import FileHandler
+from leet2git.question_db import QuestionData
 
 
 class DefaultHandler(FileHandler):

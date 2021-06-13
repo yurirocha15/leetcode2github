@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from functools import reduce
 from typing import Any, Dict, List
 
-from question_db import QuestionData, QuestionDB
+from leet2git.question_db import QuestionData, QuestionDB
 
 
 @dataclass
@@ -156,7 +156,7 @@ class ReadmeHandler:
 
 
 if __name__ == "__main__":
-    from config_manager import ConfigManager
+    from leet2git.config_manager import ConfigManager
 
     cm = ConfigManager()
     config = cm.get_config()

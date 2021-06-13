@@ -5,12 +5,12 @@ from multiprocessing.managers import SyncManager
 from typing import Dict
 
 import click
-from config_manager import ConfigManager
-from file_handler import FileHandler, generate_files
-from leetcode_client import LeetcodeClient
-from my_utils import mgr_init
-from question_db import QuestionData, QuestionDB
-from readme_handler import ReadmeHandler
+from leet2git.config_manager import ConfigManager
+from leet2git.file_handler import FileHandler, generate_files
+from leet2git.leetcode_client import LeetcodeClient
+from leet2git.my_utils import mgr_init
+from leet2git.question_db import QuestionData, QuestionDB
+from leet2git.readme_handler import ReadmeHandler
 
 
 @click.group()
@@ -26,7 +26,6 @@ def get_question(id: int):
     Args:
         id (int): the question id
     """
-    print(type(id))
     cm = ConfigManager()
     config = cm.get_config()
     lc = LeetcodeClient()
@@ -190,6 +189,7 @@ def remove_question(id: int):
         # update readme
         rh = ReadmeHandler(config)
         rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
+        print(f"The question {id} was removed.")
     else:
         print(f"The question {id} could not be found!")
 
