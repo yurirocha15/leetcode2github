@@ -2,7 +2,7 @@ import os
 import time
 from multiprocessing import Process
 from multiprocessing.managers import SyncManager
-from typing import Dict
+from typing import Any, Dict
 
 import click
 from click.exceptions import Abort
@@ -15,22 +15,39 @@ from leet2git.readme_handler import ReadmeHandler
 
 
 @click.group()
-def leet2git():
-    pass
+@click.option(
+    "--source-repository",
+    "-s",
+    default="",
+    help="The path to the folder where the code will be saved. Overrides the default config",
+)
+@click.option(
+    "--language", "-l", default="python3", help="The default language. Overrides the default config"
+)
+@click.pass_context
+def leet2git(ctx, source_repository: str, language: str):
+    cm = ConfigManager()
+    override_config = {}
+    if language:
+        override_config["language"] = language
+    if source_repository:
+        override_config["source_path"] = source_repository
+    cm.load_config(override_config)
+    ctx.obj = cm
 
 
 @leet2git.command()
 @click.argument("id", type=int)
-def get_question(id: int):
+@click.pass_obj
+def get_question(cm: ConfigManager, id: int):
     """Generates all the files for a question
 
     Args:
         id (int): the question id
     """
-    cm = ConfigManager()
-    config = cm.get_config()
+    config: Dict[str, Any] = cm.get_config()
+    qdb: QuestionDB = QuestionDB(config)
     lc = LeetcodeClient()
-    qdb = QuestionDB(config)
     qdb.load()
 
     if qdb.check_if_exists(id):
@@ -57,18 +74,16 @@ def get_question(id: int):
 
 @leet2git.command()
 @click.argument("id", type=int)
-def submit_question(id: int):
+@click.pass_obj
+def submit_question(cm: ConfigManager, id: int):
     """Submit a question to Leetcode
 
     Args:
         id (int): the question id
     """
-    cm = ConfigManager()
-    config = cm.get_config()
-    # submissions
-    qdb = QuestionDB(config)
+    config: Dict[str, Any] = cm.get_config()
+    qdb: QuestionDB = QuestionDB(config)
     qdb.load()
-    problems = qdb.get_data()
     # create submit file
     if qdb.check_if_exists(id):
         file_handler = FileHandler(qdb.get_question(id), config["language"])
@@ -84,12 +99,12 @@ def submit_question(id: int):
 
 
 @leet2git.command()
-def get_all_submissions():
+@click.pass_obj
+def get_all_submissions(cm: ConfigManager):
     """Get all solutions and generate their files"""
-    cm = ConfigManager()
-    config = cm.get_config()
+    config: Dict[str, Any] = cm.get_config()
+    qdb: QuestionDB = QuestionDB(config)
     lc = LeetcodeClient()
-    qdb = QuestionDB(config)
     qdb.load()
     has_next: bool = True
     last_key: str = ""
@@ -168,15 +183,15 @@ def get_all_submissions():
 
 @leet2git.command()
 @click.argument("id", type=int)
-def remove_question(id: int):
+@click.pass_obj
+def remove_question(cm: ConfigManager, id: int):
     """Delete a question and its files
 
     Args:
         id (int): the question id
     """
-    cm = ConfigManager()
-    config = cm.get_config()
-    qdb = QuestionDB(config)
+    config: Dict[str, Any] = cm.get_config()
+    qdb: QuestionDB = QuestionDB(config)
     qdb.load()
     if qdb.check_if_exists(id):
         data = qdb.get_data()[id]
@@ -200,14 +215,14 @@ def remove_question(id: int):
     "--source-repository", "-s", default="", help="the path to the folder where the code will be saved"
 )
 @click.option("--language", "-l", default="python3", help="the default language")
-def init(source_repository: str, language: str):
+@click.pass_obj
+def init(cm: ConfigManager, source_repository: str, language: str):
     """Creates a new configuration file
     \f
     Args:
         source_repository (s, optional): the path to the folder where the code will be saved. Defaults to "".
         language (l, optional): the default language. Defaults to "python3".
     """
-    cm = ConfigManager()
     reset_config(cm, source_repository, language)
 
 
@@ -216,7 +231,8 @@ def init(source_repository: str, language: str):
     "--source-repository", "-s", default="", help="the path to the folder where the code will be saved"
 )
 @click.option("--language", "-l", default="python3", help="the default language")
-def reset(source_repository: str, language: str):
+@click.pass_obj
+def reset(cm: ConfigManager, source_repository: str, language: str):
     """Reset the configuration file
     \f
     Args:
@@ -225,9 +241,8 @@ def reset(source_repository: str, language: str):
     """
     try:
         click.confirm("This will delete the question database. Still want to proceed?", abort=True)
-    except Abort as e:
+    except Abort:
         return
-    cm = ConfigManager()
     reset_config(cm, source_repository, language)
     qdb = QuestionDB(cm.get_config())
     qdb.reset()
