@@ -103,14 +103,13 @@ class LeetcodeClient:
         data.categories = leetcode_question_data["data"]["question"]["topicTags"]
 
         # fix #24. 10<sup>5</sup> becomes 10^5
-        re.sub(
-            r"(?:\<sup\>)(\d+)(?:\<\/sup\>)",
-            r"^\1",
-            leetcode_question_data["data"]["question"]["content"],
-        )
-
         soup = BeautifulSoup(
-            leetcode_question_data["data"]["question"]["content"], features="html.parser"
+            re.sub(
+                r"(?:\<sup\>)(\d+)(?:\<\/sup\>)",
+                r"^\1",
+                leetcode_question_data["data"]["question"]["content"],
+            ),
+            features="html.parser",
         )
         data.description = soup.get_text().replace("\r\n", "\n").split("\n")
         num_of_inputs = len(leetcode_question_data["data"]["question"]["sampleTestCase"].split("\n"))
@@ -129,22 +128,20 @@ class LeetcodeClient:
             elif line == "Output" and example_started:
                 data.outputs.append(data.description[idx + 1].strip())
                 example_started = False
-
             if len(line) > 100:
                 # split on commas or periods, while keeping them
                 split_line = re.split(r"(?<=[\.\,])\s*", line)
                 tmp_line = ""
                 for phrase in split_line:
-                    if len(tmp_line) + len(phrase) <= 100:
+                    if not tmp_line or len(tmp_line) + len(phrase) <= 100:
                         tmp_line += phrase
                     else:
                         tmp_description.append(tmp_line)
-                        tmp_line = ""
+                        tmp_line = phrase
                 if tmp_line:
                     tmp_description.append(tmp_line)
             else:
                 tmp_description.append(line)
-
         data.description = tmp_description
 
         data.file_path = os.path.join(
