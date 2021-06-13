@@ -1,7 +1,7 @@
 import ast
 import os
 import re
-from typing import List
+from typing import Any, Dict, List
 
 from leet2git.file_handler import FileHandler
 from leet2git.question_db import QuestionData
@@ -12,8 +12,15 @@ class DefaultHandler(FileHandler):
 
     languages = []
 
-    def set_question_data(self, question_data: QuestionData):
+    def set_data(self, question_data: QuestionData, config: Dict[str, Any]):
+        """Sets the data needed to generate the files
+
+        Args:
+            question_data (QuestionData): the question data
+            config (Dict[str, Any]): the app configuration
+        """
         self.question_data = question_data
+        self.config = config
 
     def get_function_name(self) -> List[str]:
         """Returns the function name
@@ -31,6 +38,11 @@ class DefaultHandler(FileHandler):
         """
         comment: str = self.conversions[self.question_data.language]["comment"]
         extension: str = self.conversions[self.question_data.language]["extension"]
+        description = (
+            [comment + " " + line + "\n" for line in self.question_data.description]
+            if self.config["source_code"]["add_description"]
+            else []
+        )
         lines: List[str] = (
             [
                 comment + f"\n",
@@ -39,7 +51,7 @@ class DefaultHandler(FileHandler):
                 comment + f" {self.question_data.url}\n",
                 comment + f"\n",
             ]
-            + [comment + " " + line + "\n" for line in self.question_data.description]
+            + description
             + [
                 "\n",
                 "\n",

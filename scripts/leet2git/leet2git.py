@@ -60,7 +60,7 @@ def get_question(cm: ConfigManager, id: int):
 
     # get question data
     args: Dict[int, QuestionData] = {}
-    generate_files(args, id, qdb.get_title_from_id(id), lc, time.time(), config["language"])
+    generate_files(args, id, qdb.get_title_from_id(id), lc, time.time(), config)
 
     if id in args:
         # store data
@@ -143,7 +143,7 @@ def get_all_submissions(cm: ConfigManager):
                                 submission["title_slug"],
                                 lc,
                                 submission["timestamp"],
-                                config["language"],
+                                config,
                                 submission["code"],
                             ),
                         )
