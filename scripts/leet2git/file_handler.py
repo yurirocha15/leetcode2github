@@ -1,8 +1,8 @@
-import os
 import signal
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Type, TypeVar
 
+import click
 from leet2git.leetcode_client import LeetcodeClient
 from leet2git.question_db import QuestionData
 
@@ -88,7 +88,7 @@ def generate_files(
     try:
         data, is_new = lc.get_question_data(qid, title_slug, language, code)
     except ValueError as e:
-        print(e.args)
+        click.secho(e.args, fg="red")
         signal.signal(signal.SIGINT, s)
         return
 
@@ -103,7 +103,7 @@ def generate_files(
             data.test_file_path = file_handler.generete_tests()
 
         args[qid] = data
-        print(f"""The question "{qid}|{data.title}" was imported""")
+        click.secho(f"""The question "{qid}|{data.title}" was imported""")
     signal.signal(signal.SIGINT, s)
 
 

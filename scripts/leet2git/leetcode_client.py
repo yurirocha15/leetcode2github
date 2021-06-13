@@ -6,6 +6,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import browser_cookie3
+import click
 import requests
 from bs4 import BeautifulSoup
 from leet2git.question_db import IdTitleMap, QuestionData
@@ -34,7 +35,7 @@ class LeetcodeClient:
         try:
             browsers = (browser_cookie3.chrome(), browser_cookie3.firefox())
         except browser_cookie3.BrowserCookieError as e:
-            print(e.args)
+            click.secho(e.args, fg="red")
 
         for browser in browsers:
             try:
@@ -226,7 +227,7 @@ class LeetcodeClient:
             response = requests.request("GET", url, headers=self.get_headers(), data=payload)
             raw_code = json.loads(response.text)["code"]
         except Exception as e:
-            print(e.args)
+            click.secho(e.args, fg="red")
         return raw_code
 
     def submit_question(self, code: str, internal_id: str, language: str):
@@ -250,7 +251,7 @@ class LeetcodeClient:
 
         response = requests.request("POST", url, headers=self.get_headers(), data=payload)
         submission_id: int = json.loads(response.text)["submission_id"]
-        print("Waiting for submission results...")
+        click.secho("Waiting for submission results...")
         url = f"https://leetcode.com/submissions/detail/{submission_id}/check/"
 
         payload = {}
@@ -261,27 +262,28 @@ class LeetcodeClient:
             status = submission_result["state"]
             time.sleep(1)
 
-        print(f'Result: {submission_result["status_msg"]}')
+        click.clear()
+        click.secho(f'Result: {submission_result["status_msg"]}')
         if submission_result["status_code"] == 10:
-            print(
+            click.secho(
                 f'Total Runtime: {submission_result["status_runtime"]} (Better than {submission_result["runtime_percentile"]:.2f}%)'
             )
-            print(
+            click.secho(
                 f'Total Memory: {submission_result["status_memory"]} (Better than {submission_result["memory_percentile"]:.2f}%)'
             )
         elif submission_result["status_code"] == 11:
-            print(f'Last Input: {submission_result["input_formatted"]}')
-            print(f'Expected Output: {submission_result["expected_output"]}')
-            print(f'Code Output: {submission_result["code_output"]}')
+            click.secho(f'Last Input: {submission_result["input_formatted"]}')
+            click.secho(f'Expected Output: {submission_result["expected_output"]}')
+            click.secho(f'Code Output: {submission_result["code_output"]}')
         elif submission_result["status_code"] == 14:
             nl = "\n"
-            print(f'Last Input: {submission_result["last_testcase"].replace(nl, " ")}')
-            print(f'Expected Output: {submission_result["expected_output"]}')
-            print(f'Code Output: {submission_result["code_output"]}')
+            click.secho(f'Last Input: {submission_result["last_testcase"].replace(nl, " ")}')
+            click.secho(f'Expected Output: {submission_result["expected_output"]}')
+            click.secho(f'Code Output: {submission_result["code_output"]}')
         elif submission_result["status_code"] == 15:
-            print(f'Runtime Error: {submission_result["runtime_error"]}')
+            click.secho(f'Runtime Error: {submission_result["runtime_error"]}')
         elif submission_result["status_code"] == 20:
-            print(f'Compile Error: {submission_result["compile_error"]}')
+            click.secho(f'Compile Error: {submission_result["compile_error"]}')
 
     def get_submission_list(self, last_key: str = "", offset: int = 0) -> Dict[str, Any]:
         """Get a list with 20 submissions

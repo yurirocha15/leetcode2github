@@ -21,6 +21,14 @@ To install the needed libraries, activate a virtual environment (recommended) an
 $ pip install -e .
 ```
 
+### Init Repository
+
+Navigate to the source repository and run:
+
+```shell
+$ leet2git init
+```
+
 ### Downloading a Question
 
 To generate the files of a given question:
@@ -51,4 +59,12 @@ To remove a downloaded problem (delete files and remove from readme):
 
 ```shell
 $ leet2git remove-question <question_id>
+```
+
+### Reset Repository
+
+**Warning: This will delete the current question database and cannot be undone.** Navigate to the source repository and run:
+
+```shell
+$ leet2git reset
 ```

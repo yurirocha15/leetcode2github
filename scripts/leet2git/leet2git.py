@@ -5,10 +5,11 @@ from multiprocessing.managers import SyncManager
 from typing import Dict
 
 import click
+from click.exceptions import Abort
 from leet2git.config_manager import ConfigManager
 from leet2git.file_handler import FileHandler, generate_files
 from leet2git.leetcode_client import LeetcodeClient
-from leet2git.my_utils import mgr_init
+from leet2git.my_utils import mgr_init, reset_config
 from leet2git.question_db import QuestionData, QuestionDB
 from leet2git.readme_handler import ReadmeHandler
 
@@ -199,19 +200,37 @@ def remove_question(id: int):
     "--source-repository", "-s", default="", help="the path to the folder where the code will be saved"
 )
 @click.option("--language", "-l", default="python3", help="the default language")
-def reset_config(*, source_repository: str, language: str):
-    """Reset the configuration file
+def init(source_repository: str, language: str):
+    """Creates a new configuration file
     \f
     Args:
         source_repository (s, optional): the path to the folder where the code will be saved. Defaults to "".
         language (l, optional): the default language. Defaults to "python3".
     """
     cm = ConfigManager()
-    if not source_repository:
-        source_repository = cm.get_config()["source_path"]
-    if not source_repository:
-        source_repository = os.getcwd()
-    cm.reset_config(source_repository, language)
+    reset_config(cm, source_repository, language)
+
+
+@leet2git.command()
+@click.option(
+    "--source-repository", "-s", default="", help="the path to the folder where the code will be saved"
+)
+@click.option("--language", "-l", default="python3", help="the default language")
+def reset(source_repository: str, language: str):
+    """Reset the configuration file
+    \f
+    Args:
+        source_repository (s, optional): the path to the folder where the code will be saved. Defaults to "".
+        language (l, optional): the default language. Defaults to "python3".
+    """
+    try:
+        click.confirm("This will delete the question database. Still want to proceed?", abort=True)
+    except Abort as e:
+        return
+    cm = ConfigManager()
+    reset_config(cm, source_repository, language)
+    qdb = QuestionDB(cm.get_config())
+    qdb.reset()
 
 
 if __name__ == "__main__":

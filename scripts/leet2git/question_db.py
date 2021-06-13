@@ -166,3 +166,9 @@ class QuestionDB:
                 a dictionary mapping the question id to the title slug and vice-versa
         """
         self.id_title_map = id_title_map
+
+    def reset(self):
+        """Delete database"""
+        self.question_data_dict: Dict[int, QuestionData] = {}
+        self.id_title_map: IdTitleMap = IdTitleMap()
+        self.save()
