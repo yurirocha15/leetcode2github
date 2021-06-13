@@ -1,9 +1,9 @@
 import json
 import os
-import subprocess
 from typing import Any, Dict
 
 import appdirs
+import click
 
 
 class ConfigManager:
@@ -30,14 +30,6 @@ class ConfigManager:
         config["data_path"] = self._data_path
         return config
 
-    def get_editor(self) -> str:
-        """Return the default editor
-
-        Returns:
-            str: the default editor
-        """
-        return os.environ.get("HGEDITOR") or os.environ.get("VISUAL") or os.environ.get("EDITOR", "vi")
-
     def reset_config(self, repo_path: str, language: str = "python3"):
         """Resets the config and open it on the default editor
 
@@ -52,19 +44,18 @@ class ConfigManager:
                 "show_difficulty": True,
                 "show_category": True,
             },
+            "source_code": {
+                "add_description": True,
+            },
+            "test_code": {
+                "generate_tests": True,
+            },
         }
         with open(self._config_file, "w", encoding="UTF8") as file:
             json.dump(config_options, file, indent=4)
 
-        self.edit_config()
-
-    def edit_config(self):
-        """Opens the configuration file on the default editor"""
-        editor = self.get_editor()
-        try:
-            subprocess.call('%s "%s"' % (editor, self._config_file), shell=True)
-        except Exception as e:
-            print(e.args)
+        click.edit(filename=self._config_file, extension=".json")
+        click.secho(f"You can also edit the configuration manually. File Location: {self._config_file}")
 
 
 if __name__ == "__main__":

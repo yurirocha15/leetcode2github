@@ -33,7 +33,7 @@ def get_question(id: int):
     qdb.load()
 
     if qdb.check_if_exists(id):
-        print("Question already imported")
+        click.secho("Question already imported")
         return
 
     if not qdb.check_if_slug_is_known(id):
@@ -77,9 +77,9 @@ def submit_question(id: int):
         try:
             lc.submit_question(code, qdb.get_question(id).internal_id, config["language"])
         except Exception as e:
-            print(e.args)
+            click.secho(e.args, fg="red")
     else:
-        print(f"Could not find the question with id {id}")
+        click.secho(f"Could not find the question with id {id}")
 
 
 @leet2git.command()
@@ -146,14 +146,14 @@ def get_all_submissions():
             offset += 20
             qdb.save()
     except KeyboardInterrupt:
-        print("Stopping the process...")
+        click.secho("Stopping the process...")
         for p in jobs:
             p.join()
         for data in ret_dict.values():
             qdb.add_question(data)
             imported_cnt += 1
     except Exception as e:
-        print(e.args)
+        click.secho(e.args, fg="red")
     finally:
         manager.shutdown()
 
@@ -162,7 +162,7 @@ def get_all_submissions():
     rh = ReadmeHandler(config)
     rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
 
-    print(f"In total, {imported_cnt} questions were imported!")
+    click.secho(f"In total, {imported_cnt} questions were imported!")
 
 
 @leet2git.command()
@@ -183,15 +183,15 @@ def remove_question(id: int):
             os.remove(data.file_path)
             os.remove(data.test_file_path)
         except FileNotFoundError as e:
-            print(e.args)
+            click.secho(e.args)
         qdb.delete_question(id)
         qdb.save()
         # update readme
         rh = ReadmeHandler(config)
         rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
-        print(f"The question {id} was removed.")
+        click.secho(f"The question {id} was removed.")
     else:
-        print(f"The question {id} could not be found!")
+        click.secho(f"The question {id} could not be found!")
 
 
 @leet2git.command()
