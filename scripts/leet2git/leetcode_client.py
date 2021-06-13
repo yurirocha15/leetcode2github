@@ -101,6 +101,14 @@ class LeetcodeClient:
             if code["langSlug"] == language
         )
         data.categories = leetcode_question_data["data"]["question"]["topicTags"]
+
+        # fix #24. 10<sup>5</sup> becomes 10^5
+        re.sub(
+            r"(?:\<sup\>)(\d+)(?:\<\/sup\>)",
+            r"^\1",
+            leetcode_question_data["data"]["question"]["content"],
+        )
+
         soup = BeautifulSoup(
             leetcode_question_data["data"]["question"]["content"], features="html.parser"
         )
