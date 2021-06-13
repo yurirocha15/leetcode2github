@@ -3,7 +3,7 @@ format:
 	black --line-length 104 .
 
 setup:
-	pip -e install .[dev]
+	pip install -e .[dev]
 	pre-commit install
 
 test-solutions:
