@@ -1,11 +1,13 @@
 # leet2git
-This repository is a template which automates the boilerplate code when adding solutions to leetcode problems.
+This repository tries to automate the steps needed to integrate your leetcode answers with github.
 
-Using a single command, one can get the question information, generate the python executable template, generate the test files, and update the table at the end of the README.
-
-## Question Solutions
-
-Please check the [Solution Summary](QUESTIONS.md).
+This includes:
+ - Importing a question:
+   - generates the question file,
+   - generates the test file (python3 only),
+   - updates the README
+ - Submiting a question solution
+ - Importing the latest accepted solution for each question with a single command
 
 ## Usage
 
@@ -13,10 +15,10 @@ Currently, it is necessary to log into leetcode on either chrome or firefox befo
 
 ### Installation
 
-To install the needed libraries:
+To install the needed libraries, activate a virtual environment (recommended) and run:
 
 ```shell
-$ make setup
+$ pip install -e .
 ```
 
 ### Downloading a Question
@@ -24,7 +26,7 @@ $ make setup
 To generate the files of a given question:
 
 ```shell
-$ make get-question ID=<question_id>
+$ leet2git get-question <question_id>
 ```
 
 ### Submitting a Question
@@ -32,7 +34,7 @@ $ make get-question ID=<question_id>
 To submit a question to leetcode:
 
 ```shell
-$ make submit-question ID=<question_id>
+$ leet2git submit-question <question_id>
 ```
 
 ### Dowloading All Submissions
@@ -40,7 +42,7 @@ $ make submit-question ID=<question_id>
 To download the latest accepted submission for each solved problem:
 
 ```shell
-$ make get-all-submissions
+$ leet2git get-all-submissions
 ```
 
 ### Removing a Question
@@ -48,5 +50,5 @@ $ make get-all-submissions
 To remove a downloaded problem (delete files and remove from readme):
 
 ```shell
-$ make remove-question ID=<question_id>
+$ leet2git remove-question <question_id>
 ```
