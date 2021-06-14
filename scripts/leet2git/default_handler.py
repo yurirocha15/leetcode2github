@@ -45,7 +45,7 @@ class DefaultHandler(FileHandler):
         )
         lines: List[str] = (
             [
-                comment + f"\n",
+                comment + f" @l2g {self.question_data.id} {self.question_data.language}\n",
                 comment + f" [{self.question_data.id}] {self.question_data.title}\n",
                 comment + f" Difficulty: {self.question_data.difficulty}\n",
                 comment + f" {self.question_data.url}\n",
