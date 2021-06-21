@@ -1,8 +1,10 @@
+import os
 import signal
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Type, TypeVar
 
 import click
+from git import Repo
 from leet2git.leetcode_client import LeetcodeClient
 from leet2git.question_db import QuestionData
 
@@ -50,6 +52,17 @@ class FileHandler(ABC):
             bool: true if there is a handler for the language
         """
         return language.lower() in self.conversions
+
+    def generate_repo(self, folder_path: str):
+        """Generates a git repository
+
+        Args:
+            folder_path (str): the path to the repository folder
+        """
+        _ = Repo.init(folder_path)
+        with open(os.path.join(folder_path, "README.md"), "w") as _:
+            pass
+        os.makedirs(os.path.join(folder_path, "src"), exist_ok=True)
 
     @abstractmethod
     def set_data(self, question_data: QuestionData, config: Dict[str, Any]):

@@ -205,6 +205,15 @@ class PythonHandler(FileHandler):
 
         return code
 
+    def generate_repo(self, folder_path: str):
+        """Generates a git repository
+
+        Args:
+            folder_path (str): the path to the repository folder
+        """
+        super().generate_repo(folder_path)
+        os.makedirs(os.path.join(folder_path, "tests"), exist_ok=True)
+
     def parse_raw_code(self, raw_code: str, is_solution: bool) -> List[str]:
         """Parses the raw code returned by leetcode
 

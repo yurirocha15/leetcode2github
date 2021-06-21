@@ -45,8 +45,7 @@ def get_question(cm: ConfigManager, id: int):
     Args:
         id (int): the question id
     """
-    config: Dict[str, Any] = cm.get_config()
-    qdb: QuestionDB = QuestionDB(config)
+    qdb: QuestionDB = QuestionDB(cm.config)
     lc = LeetcodeClient()
     qdb.load()
 
@@ -60,7 +59,7 @@ def get_question(cm: ConfigManager, id: int):
 
     # get question data
     args: Dict[int, QuestionData] = {}
-    generate_files(args, id, qdb.get_title_from_id(id), lc, time.time(), config)
+    generate_files(args, id, qdb.get_title_from_id(id), lc, time.time(), cm.config)
 
     if id in args:
         # store data
@@ -68,7 +67,7 @@ def get_question(cm: ConfigManager, id: int):
         qdb.save()
 
         # update readme
-        rh = ReadmeHandler(config)
+        rh = ReadmeHandler(cm.config)
         rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
 
 
@@ -81,17 +80,16 @@ def submit_question(cm: ConfigManager, id: int):
     Args:
         id (int): the question id
     """
-    config: Dict[str, Any] = cm.get_config()
-    qdb: QuestionDB = QuestionDB(config)
+    qdb: QuestionDB = QuestionDB(cm.config)
     qdb.load()
     # create submit file
     if qdb.check_if_exists(id):
-        file_handler = FileHandler(qdb.get_question(id), config["language"])
+        file_handler = FileHandler(qdb.get_question(id), cm.config["language"])
         code = file_handler.generate_submission_file()
 
         lc = LeetcodeClient()
         try:
-            lc.submit_question(code, qdb.get_question(id).internal_id, config["language"])
+            lc.submit_question(code, qdb.get_question(id).internal_id, cm.config["language"])
         except Exception as e:
             click.secho(e.args, fg="red")
     else:
@@ -102,8 +100,7 @@ def submit_question(cm: ConfigManager, id: int):
 @click.pass_obj
 def get_all_submissions(cm: ConfigManager):
     """Get all solutions and generate their files"""
-    config: Dict[str, Any] = cm.get_config()
-    qdb: QuestionDB = QuestionDB(config)
+    qdb: QuestionDB = QuestionDB(cm.config)
     lc = LeetcodeClient()
     qdb.load()
     has_next: bool = True
@@ -128,7 +125,7 @@ def get_all_submissions(cm: ConfigManager):
                     qid = qdb.get_id_from_title(submission["title_slug"])
                 if (
                     submission["status_display"] == "Accepted"
-                    and submission["lang"] == config["language"]
+                    and submission["lang"] == cm.config["language"]
                     and not qdb.check_if_exists(qid)
                 ):
                     if not qdb.check_if_exists(qid):
@@ -143,7 +140,7 @@ def get_all_submissions(cm: ConfigManager):
                                 submission["title_slug"],
                                 lc,
                                 submission["timestamp"],
-                                config,
+                                cm.config,
                                 submission["code"],
                             ),
                         )
@@ -175,7 +172,7 @@ def get_all_submissions(cm: ConfigManager):
 
     qdb.save()
     # update readme
-    rh = ReadmeHandler(config)
+    rh = ReadmeHandler(cm.config)
     rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
 
     click.secho(f"In total, {imported_cnt} questions were imported!")
@@ -190,8 +187,7 @@ def remove_question(cm: ConfigManager, id: int):
     Args:
         id (int): the question id
     """
-    config: Dict[str, Any] = cm.get_config()
-    qdb: QuestionDB = QuestionDB(config)
+    qdb: QuestionDB = QuestionDB(cm.config)
     qdb.load()
     if qdb.check_if_exists(id):
         data = qdb.get_data()[id]
@@ -203,7 +199,7 @@ def remove_question(cm: ConfigManager, id: int):
         qdb.delete_question(id)
         qdb.save()
         # update readme
-        rh = ReadmeHandler(config)
+        rh = ReadmeHandler(cm.config)
         rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
         click.secho(f"The question {id} was removed.")
     else:
@@ -215,15 +211,22 @@ def remove_question(cm: ConfigManager, id: int):
     "--source-repository", "-s", default="", help="the path to the folder where the code will be saved"
 )
 @click.option("--language", "-l", default="python3", help="the default language")
+@click.option("--create-repo", "-c", is_flag=True, help="generates a git repository")
 @click.pass_obj
-def init(cm: ConfigManager, source_repository: str, language: str):
-    """Creates a new configuration file
+def init(cm: ConfigManager, source_repository: str, language: str, create_repo: bool):
+    """Creates a new configuration file and can generate a git repository.
     \f
     Args:
-        source_repository (s, optional): the path to the folder where the code will be saved. Defaults to "".
-        language (l, optional): the default language. Defaults to "python3".
+        source_repository (str, optional): the path to the folder where the code will be saved. Defaults to "".
+        language (str, optional): the default language. Defaults to "python3".
+        create_repo (bool, optional): generates a git repository. Defaults to False.
     """
-    reset_config(cm, source_repository, language)
+    reset_config(cm, source_repository, language, load_old=False)
+    cm.load_config()
+    if create_repo:
+        data = QuestionData(language=cm.config["language"])
+        file_handler = FileHandler(data, cm.config)
+        file_handler.generate_repo(cm.config["source_path"])
 
 
 @leet2git.command()
@@ -244,7 +247,7 @@ def reset(cm: ConfigManager, source_repository: str, language: str):
     except Abort:
         return
     reset_config(cm, source_repository, language)
-    qdb = QuestionDB(cm.get_config())
+    qdb = QuestionDB(cm.config)
     qdb.reset()
 
 

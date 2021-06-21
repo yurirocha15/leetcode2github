@@ -159,7 +159,7 @@ if __name__ == "__main__":
     from leet2git.config_manager import ConfigManager
 
     cm = ConfigManager()
-    config = cm.get_config()
+    config = cm.config
     qdb = QuestionDB(config)
     qdb.load()
     rh = ReadmeHandler(config)
