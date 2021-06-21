@@ -247,6 +247,7 @@ def reset(cm: ConfigManager, source_repository: str, language: str):
     except Abort:
         return
     reset_config(cm, source_repository, language)
+    cm.load_config()
     qdb = QuestionDB(cm.config)
     qdb.reset()
 

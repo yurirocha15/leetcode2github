@@ -65,7 +65,9 @@ class DefaultHandler(FileHandler):
         lines.extend([l for l in code])
         self.question_data.file_path += extension
 
-        with open(self.question_data.file_path, "w", encoding="UTF8") as f:
+        with open(
+            os.path.join(self.config["source_path"], self.question_data.file_path), "w", encoding="UTF8"
+        ) as f:
             f.writelines(lines)
 
         return self.question_data.file_path
@@ -81,7 +83,9 @@ class DefaultHandler(FileHandler):
             str: a string containing the code
         """
         code: str = ""
-        with open(self.question_data.file_path, "r", encoding="UTF8") as f:
+        with open(
+            os.path.join(self.config["source_path"], self.question_data.file_path), "r", encoding="UTF8"
+        ) as f:
             for line in f:
                 code += line
 

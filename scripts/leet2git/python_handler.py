@@ -73,18 +73,20 @@ class PythonHandler(FileHandler):
         lines.extend([l for l in code_lines])
         self.question_data.file_path += extension
 
-        with open(self.question_data.file_path, "w", encoding="UTF8") as f:
+        full_path: str = os.path.join(self.config["source_path"], self.question_data.file_path)
+        print(full_path)
+        with open(full_path, "w", encoding="UTF8") as f:
             f.writelines(lines)
 
         # fix imports
-        with open(self.question_data.file_path, "r+", encoding="UTF8") as f:
+        with open(full_path, "r+", encoding="UTF8") as f:
             try:
                 fix_files([f])
             except Exception as e:
                 print(e.args)
 
         # add main
-        with open(self.question_data.file_path, "a", encoding="UTF8") as f:
+        with open(full_path, "a", encoding="UTF8") as f:
             f.write("\n")
             f.write("\n")
             f.write('if __name__ == "__main__":\n')
@@ -125,8 +127,11 @@ class PythonHandler(FileHandler):
                 outputs.append(ast.literal_eval(output))
         elif not self.question_data.function_name:
             raise ValueError("No function name")
+        full_path: str = os.path.join(
+            self.config["source_path"], "tests", f"test_{self.question_data.id}{extension}"
+        )
         with open(
-            os.path.join("tests", f"test_{self.question_data.id}{extension}"),
+            full_path,
             "a",
             encoding="UTF8",
         ) as f:
@@ -197,7 +202,8 @@ class PythonHandler(FileHandler):
         code: str = ""
         # regex to match main definition
         match = r"""^if\s+__name__\s+==\s+('|")__main__('|")\s*:\s*"""
-        with open(self.question_data.file_path, "r", encoding="UTF8") as f:
+        full_path: str = os.path.join(self.config["source_path"], self.question_data.file_path)
+        with open(full_path, "r", encoding="UTF8") as f:
             for line in f:
                 if re.match(match, line):
                     break
