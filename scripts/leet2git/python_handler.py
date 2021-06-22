@@ -74,7 +74,7 @@ class PythonHandler(FileHandler):
         self.question_data.file_path += extension
 
         full_path: str = os.path.join(self.config["source_path"], self.question_data.file_path)
-        print(full_path)
+
         with open(full_path, "w", encoding="UTF8") as f:
             f.writelines(lines)
 

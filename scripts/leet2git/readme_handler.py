@@ -17,7 +17,7 @@ class ReadmeHandler:
     """Updates the README with the solved questions"""
 
     def __init__(self, config: Dict[str, Any]):
-        self.readme_file: str = os.path.join(config["source_path"], "QUESTIONS.md")
+        self.readme_file: str = os.path.join(config["source_path"], "README.md")
         self.print_categories: bool = config["readme"]["show_category"]
         self.print_difficulty: bool = config["readme"]["show_difficulty"]
 
@@ -153,6 +153,12 @@ class ReadmeHandler:
                     )
                     for value in table[1].values:
                         f.write("|" + "|".join(value) + "|\n")
+
+            f.write(f"\n")
+            f.write(f"\n")
+            f.write(
+                f"Automatically generated using [Leet2Git](https://github.com/yurirocha15/leetcode2github).\n"
+            )
 
 
 if __name__ == "__main__":
