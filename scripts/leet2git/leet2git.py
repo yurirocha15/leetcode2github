@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 from multiprocessing import Process
 from multiprocessing.managers import SyncManager
@@ -234,22 +235,46 @@ def init(cm: ConfigManager, source_repository: str, language: str, create_repo: 
     "--source-repository", "-s", default="", help="the path to the folder where the code will be saved"
 )
 @click.option("--language", "-l", default="python3", help="the default language")
+@click.option(
+    "--soft/--hard",
+    default=True,
+    help="A soft reset only erases the database. A hard reset also erase the files.",
+)
 @click.pass_obj
-def reset(cm: ConfigManager, source_repository: str, language: str):
+def reset(cm: ConfigManager, source_repository: str, language: str, soft: bool):
     """Reset the configuration file
     \f
     Args:
-        source_repository (s, optional): the path to the folder where the code will be saved. Defaults to "".
-        language (l, optional): the default language. Defaults to "python3".
+        source_repository (str, optional): the path to the folder where the code will be saved. Defaults to "".
+        language (str, optional): the default language. Defaults to "python3".
+        soft(bool, optional): the reset hardness. Defaults to soft.
     """
-    try:
-        click.confirm("This will delete the question database. Still want to proceed?", abort=True)
-    except Abort:
-        return
+    if not soft:
+        try:
+            click.confirm(
+                f"This will delete EVERY FILE inside the {cm.config['source_path']} folder. Still want to proceed?",
+                abort=True,
+            )
+        except Abort:
+            return
+
+        shutil.rmtree(cm.config["source_path"])
+
+    else:
+        try:
+            click.confirm("This will delete the question database. Still want to proceed?", abort=True)
+        except Abort:
+            return
+
     reset_config(cm, source_repository, language)
     cm.load_config()
     qdb = QuestionDB(cm.config)
     qdb.reset()
+
+    if not soft:
+        data = QuestionData(language=cm.config["language"])
+        file_handler = FileHandler(data, cm.config)
+        file_handler.generate_repo(cm.config["source_path"])
 
 
 if __name__ == "__main__":
