@@ -12,9 +12,10 @@ setup(
         "bs4 == 0.0.1",
         "browser-cookie3 == 0.12.1",
         "click == 8.0.1",
-        "requests == 2.25.1",
         "black == 21.5b2",
         "isort == 5.6.4",
+        "GitPython == 3.1.18",
+        "requests == 2.25.1",
     ],
     extra_require={
         "dev": [
