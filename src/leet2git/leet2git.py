@@ -26,7 +26,10 @@ from leet2git.version import version_info
     help="The path to the folder where the code will be saved. Overrides the default config",
 )
 @click.option(
-    "--language", "-l", default="python3", help="The default language. Overrides the default config"
+    "--language",
+    "-l",
+    default="python3",
+    help="The language to run the command. Overrides the default config",
 )
 @click.pass_context
 def leet2git(ctx, source_repository: str, language: str):

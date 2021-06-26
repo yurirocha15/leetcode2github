@@ -28,7 +28,7 @@ Usage: leet2git [OPTIONS] COMMAND [ARGS]...
 Options:
   --version                     Show the version and exit.
   -s, --source-repository TEXT  The path to the folder where the code will be saved. Overrides the default config
-  -l, --language TEXT           The default language. Overrides the default config
+  -l, --language TEXT           The language to run the command. Overrides the default config
   --help                        Show this message and exit.
 
 Commands:
