@@ -1,6 +1,6 @@
 format:
 	isort .
-	black --line-length 104 .
+	black .
 
 setup:
 	pip install -e .
