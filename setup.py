@@ -3,8 +3,8 @@ from setuptools import find_packages, setup
 setup(
     name="leet2git",
     version="0.1.0",
-    packages=find_packages("scripts"),
-    package_dir={"": "scripts"},
+    packages=find_packages("src"),
+    package_dir={"": "src"},
     package_data={"leet2git": ["py.typed"]},
     install_requires=[
         "appdirs == 1.4.4",

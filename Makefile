@@ -6,6 +6,7 @@ setup:
 	pip install -e .
 
 setup-dev:
+	make setup
 	pip install -r requirements.txt
 	pip install -r requirements-dev.txt
 

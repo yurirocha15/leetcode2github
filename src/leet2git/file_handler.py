@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional, Type, TypeVar
 
 import click
 from git import Repo
+
 from leet2git.leetcode_client import LeetcodeClient
 from leet2git.question_db import QuestionData
 

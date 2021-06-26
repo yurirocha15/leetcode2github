@@ -7,6 +7,7 @@ from typing import Any, Dict
 
 import click
 from click.exceptions import Abort
+
 from leet2git.config_manager import ConfigManager
 from leet2git.file_handler import FileHandler, generate_files
 from leet2git.leetcode_client import LeetcodeClient
@@ -116,6 +117,12 @@ def get_all_submissions(cm: ConfigManager):
             manager.start(mgr_init)
             ret_dict = manager.dict()
             submissions = lc.get_submission_list(last_key, offset)
+            if "submissions_dump" not in submissions:
+                if imported_cnt <= 0:
+                    raise ValueError(
+                        "No submission to import. Are you logged in to leetcode? (Chrome or Firefox)"
+                    )
+                break
             for submission in submissions["submissions_dump"]:
                 qid: int = -1
                 if qdb.check_if_id_is_known(submission["title_slug"]):
