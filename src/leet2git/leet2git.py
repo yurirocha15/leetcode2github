@@ -14,9 +14,11 @@ from leet2git.leetcode_client import LeetcodeClient
 from leet2git.my_utils import mgr_init, reset_config
 from leet2git.question_db import QuestionData, QuestionDB
 from leet2git.readme_handler import ReadmeHandler
+from leet2git.version import version_info
 
 
 @click.group()
+@click.version_option(version="", message=version_info())
 @click.option(
     "--source-repository",
     "-s",
