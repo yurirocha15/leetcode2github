@@ -34,13 +34,13 @@ class LeetcodeClient:
         url = "https://leetcode.com/profile/"
         client = requests.session()
         try:
-            browsers = (browser_cookie3.chrome(), browser_cookie3.firefox())
+            browsers = (browser_cookie3.chrome, browser_cookie3.firefox)
         except browser_cookie3.BrowserCookieError as e:
             click.secho(e.args, fg="red")
 
         for browser in browsers:
             try:
-                r = client.get(url, cookies=browser)
+                r = client.get(url, cookies=browser())
                 cookies = r.request.headers["Cookie"]
                 csrftoken = client.cookies["csrftoken"]
             except:
