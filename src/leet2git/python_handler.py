@@ -1,8 +1,10 @@
 import ast
 import os
 import re
+import subprocess
 from typing import Any, Dict, List
 
+import click
 from autoimport import fix_files
 
 from leet2git.file_handler import FileHandler
@@ -98,6 +100,16 @@ class PythonHandler(FileHandler):
             )
             f.write("")
 
+        try:
+            subprocess.run(
+                f"isort --profile=black {full_path}",
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            subprocess.run(f"black {full_path}", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:
+            click.secho(e.args, fg="red")
+
         return self.question_data.file_path
 
     def generete_tests(self) -> str:
@@ -191,6 +203,16 @@ class PythonHandler(FileHandler):
                             + (f" == {output}" if output not in ["True", "False"] else "")
                             + "\n"
                         )
+
+        try:
+            subprocess.run(
+                f"isort --profile=black {full_path}",
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            subprocess.run(f"black {full_path}", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:
+            click.secho(e.args, fg="red")
 
         return os.path.join("tests", f"test_{self.question_data.id}{extension}")
 
