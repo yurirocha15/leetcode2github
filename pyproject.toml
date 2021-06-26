@@ -1,0 +1,36 @@
+# --------- Black -------------
+
+[tool.black]
+line-length = 104
+target-version = ['py38', 'py39']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  # The following are specific to Black, you probably don't want those.
+  | blib2to3
+  | tests/data
+  | profiling
+)/
+'''
+
+# --------- Isort -------------
+
+[tool.isort]
+profile = "black"
+src_paths = ["src", "test"]
+
+# --------- Build-system -------------
+
+[build-system]
+requires = ["setuptools >= 40.6.0", "wheel"]
+build-backend = "setuptools.build_meta"
