@@ -1,5 +1,6 @@
 import os
 import signal
+import traceback
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Type, TypeVar
 
@@ -103,6 +104,7 @@ def generate_files(
         data, is_new = lc.get_question_data(qid, title_slug, config["language"], code)
     except ValueError as e:
         click.secho(e.args, fg="red")
+        click.secho(traceback.format_exc())
         signal.signal(signal.SIGINT, s)
         return
 

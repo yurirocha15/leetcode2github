@@ -1,6 +1,7 @@
+import glob
 import os
-import shutil
 import time
+import traceback
 from multiprocessing import Process
 from multiprocessing.managers import SyncManager
 from typing import Any, Dict
@@ -55,7 +56,6 @@ def get_question(cm: ConfigManager, id: int):
     qdb: QuestionDB = QuestionDB(cm.config)
     lc = LeetcodeClient()
     qdb.load()
-
     if qdb.check_if_exists(id):
         click.secho("Question already imported")
         return
@@ -99,6 +99,7 @@ def submit_question(cm: ConfigManager, id: int):
             lc.submit_question(code, qdb.get_question(id).internal_id, cm.config["language"])
         except Exception as e:
             click.secho(e.args, fg="red")
+            click.secho(traceback.format_exc())
     else:
         click.secho(f"Could not find the question with id {id}")
 
@@ -180,6 +181,7 @@ def get_all_submissions(cm: ConfigManager):
             imported_cnt += 1
     except Exception as e:
         click.secho(e.args, fg="red")
+        click.secho(traceback.format_exc())
     finally:
         manager.shutdown()
 
@@ -270,7 +272,14 @@ def reset(cm: ConfigManager, source_repository: str, language: str, soft: bool):
         except Abort:
             return
 
-        shutil.rmtree(cm.config["source_path"])
+        file_list = glob.glob(os.path.join(cm.config["source_path"], "src", "*.*")) + glob.glob(
+            os.path.join(cm.config["source_path"], "tests", "*.*")
+        )
+        for file in file_list:
+            try:
+                os.remove(file)
+            except FileNotFoundError as e:
+                click.secho(e.args)
 
     else:
         try:

@@ -3,6 +3,7 @@ import os
 import platform
 import re
 import time
+import traceback
 from typing import Any, Dict, List, Optional, Tuple
 
 import browser_cookie3
@@ -37,6 +38,7 @@ class LeetcodeClient:
             browsers = (browser_cookie3.chrome, browser_cookie3.firefox)
         except browser_cookie3.BrowserCookieError as e:
             click.secho(e.args, fg="red")
+            click.secho(traceback.format_exc())
 
         for browser in browsers:
             try:
@@ -234,6 +236,7 @@ class LeetcodeClient:
             raw_code = json.loads(response.text)["code"]
         except Exception as e:
             click.secho(e.args, fg="red")
+            click.secho(traceback.format_exc())
         return raw_code
 
     def submit_question(self, code: str, internal_id: str, language: str):

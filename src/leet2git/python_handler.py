@@ -2,6 +2,7 @@ import ast
 import os
 import re
 import subprocess
+import traceback
 from typing import Any, Dict, List
 
 import click
@@ -86,7 +87,8 @@ class PythonHandler(FileHandler):
             try:
                 fix_files([f])
             except Exception as e:
-                print(e.args)
+                click.secho(e.args, fg="red")
+                click.secho(traceback.format_exc())
 
         # add main
         with open(full_path, "a", encoding="UTF8") as f:
@@ -105,10 +107,14 @@ class PythonHandler(FileHandler):
                 f"isort --profile=black {full_path}",
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                shell=True,
             )
-            subprocess.run(f"black {full_path}", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(
+                f"black {full_path}", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True
+            )
         except Exception as e:
             click.secho(e.args, fg="red")
+            click.secho(traceback.format_exc())
 
         return self.question_data.file_path
 
@@ -209,10 +215,14 @@ class PythonHandler(FileHandler):
                 f"isort --profile=black {full_path}",
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                shell=True,
             )
-            subprocess.run(f"black {full_path}", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(
+                f"black {full_path}", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True
+            )
         except Exception as e:
             click.secho(e.args, fg="red")
+            click.secho(traceback.format_exc())
 
         return os.path.join("tests", f"test_{self.question_data.id}{extension}")
 
