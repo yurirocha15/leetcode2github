@@ -266,15 +266,16 @@ def reset(cm: ConfigManager, source_repository: str, language: str, soft: bool):
     if not soft:
         try:
             click.confirm(
-                f"This will delete EVERY FILE inside the {cm.config['source_path']} folder. Still want to proceed?",
+                f"This will delete EVERY solution and test file inside the {cm.config['source_path']} folder. Still want to proceed?",
                 abort=True,
             )
         except Abort:
             return
 
-        file_list = glob.glob(os.path.join(cm.config["source_path"], "src", "*.*")) + glob.glob(
-            os.path.join(cm.config["source_path"], "tests", "*.*")
+        file_list = glob.glob(os.path.join(cm.config["source_path"], "src", "leetcode_*")) + glob.glob(
+            os.path.join(cm.config["source_path"], "tests", "test_*")
         )
+
         for file in file_list:
             try:
                 os.remove(file)
