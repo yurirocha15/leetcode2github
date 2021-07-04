@@ -47,7 +47,7 @@ setup(
     install_requires=[
         "appdirs == 1.4.4",
         "autoimport == 0.7.0",
-        "bs4 == 0.0.1",
+        "beautifulsoup4 == 4.9.3",
         "browser-cookie3 == 0.12.1",
         "click == 8.0.1",
         "black == 21.5b2",
