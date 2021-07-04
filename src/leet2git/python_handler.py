@@ -252,6 +252,10 @@ class PythonHandler(FileHandler):
         """
         super().generate_repo(folder_path)
         os.makedirs(os.path.join(folder_path, "tests"), exist_ok=True)
+        with open(os.path.join(folder_path, "src", "__init__.py"), "w") as file:
+            file.write("\n")
+        with open(os.path.join(folder_path, "tests", "__init__.py"), "w") as file:
+            file.write("\n")
 
     def parse_raw_code(self, raw_code: str, is_solution: bool) -> List[str]:
         """Parses the raw code returned by leetcode
