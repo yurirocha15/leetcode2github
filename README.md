@@ -185,3 +185,29 @@ The path to the code repository
 ### test_code
 
 - generate_tests: If true, will try to generate local test files for the question. Currently only python3 is supported.
+
+
+## Language Support
+
+| Language | Generate/Import Question | Generate Local Tests | Submit Question | Auto Import/Include Libraries |
+|:--------:|--------------------------|----------------------|-----------------|-------------------------------|
+| bash | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| c | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| cpp | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| csharp | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| golang | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| java | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| javascript | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| kotlin | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| mysql | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| php | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| python | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| python3 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :large_orange_diamond: |
+| ruby | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| rust | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| scala | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+| swift | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
+
+:heavy_check_mark:: Fully Supported
+:large_orange_diamond:: Partially Supported
+:x:: Not Supported
