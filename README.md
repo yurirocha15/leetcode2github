@@ -14,7 +14,15 @@ This includes:
 To install the needed libraries, activate a virtual environment (recommended) and run:
 
 ```shell
-$ pip install -e .
+$ pip install leet2git
+```
+
+### Install from Source
+
+To install from source, download this repository, navigate to the folder and run:
+
+```shell
+$ pip install -e .[dev]
 ```
 
 ## Usage
