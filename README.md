@@ -35,7 +35,7 @@ Commands:
   delete      Delete a question and its files
   get         Generates all the files for a question
   import-all  Get all solutions and generate their files
-  init        Creates a new configuration file and can generate a git...
+  init        Creates a new configuration file and can generate a git repository.
   reset       Reset the configuration file
   submit      Submit a question to Leetcode
 ```
