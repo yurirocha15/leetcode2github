@@ -91,7 +91,7 @@ def submit_question(cm: ConfigManager, id: int):
     qdb.load()
     # create submit file
     if qdb.check_if_exists(id):
-        file_handler = FileHandler(qdb.get_question(id), cm.config["language"])
+        file_handler = FileHandler(qdb.get_question(id), cm.config)
         code = file_handler.generate_submission_file()
 
         lc = LeetcodeClient()
