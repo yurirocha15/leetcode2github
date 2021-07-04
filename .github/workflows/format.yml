@@ -10,11 +10,11 @@ jobs:
     - uses: conda-incubator/setup-miniconda@v2
       with:
         activate-environment: coding-practice
-        python-version: 3.7
+        python-version: 3.8
         auto-activate-base: false
     - name: Setup
       shell: bash -l {0}
-      run: make setup
+      run: make setup-dev
     - name: Format with black and isort
       shell: bash -l {0}
       run: make format
