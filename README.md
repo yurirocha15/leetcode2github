@@ -32,12 +32,12 @@ Options:
   --help                        Show this message and exit.
 
 Commands:
-  get-all-submissions  Get all solutions and generate their files
-  get-question         Generates all the files for a question
-  init                 Creates a new configuration file and can generate a git repository.
-  remove-question      Delete a question and its files
-  reset                Reset the configuration file
-  submit-question      Submit a question to Leetcode
+  delete      Delete a question and its files
+  get         Generates all the files for a question
+  import-all  Get all solutions and generate their files
+  init        Creates a new configuration file and can generate a git...
+  reset       Reset the configuration file
+  submit      Submit a question to Leetcode
 ```
 
 ### Init Repository
@@ -63,7 +63,7 @@ Running this command will open the configuration file in the default editor.
 To download the latest accepted submission for each solved problem:
 
 ```shell
-$ leet2git get-all-submissions
+$ leet2git import-all
 ```
 
 ### Downloading a Question to Solve
@@ -71,8 +71,8 @@ $ leet2git get-all-submissions
 To generate the files of a given question:
 
 ```shell
-$ leet2git get-question --help
-Usage: leet2git get-question [OPTIONS] ID
+$ leet2git get --help
+Usage: leet2git get [OPTIONS] ID
 
   Generates all the files for a question
 
@@ -84,8 +84,8 @@ Usage: leet2git get-question [OPTIONS] ID
 To submit a question to leetcode:
 
 ```shell
-$ leet2git submit-question --help
-Usage: leet2git submit-question [OPTIONS] ID
+$ leet2git submit --help
+Usage: leet2git submit [OPTIONS] ID
 
   Submit a question to Leetcode
 
@@ -97,8 +97,8 @@ Usage: leet2git submit-question [OPTIONS] ID
 To remove a downloaded problem (delete files and remove from readme):
 
 ```shell
-$ leet2git remove-question --help
-Usage: leet2git remove-question [OPTIONS] ID
+$ leet2git delete --help
+Usage: leet2git delete [OPTIONS] ID
 
   Delete a question and its files
 

@@ -47,7 +47,7 @@ def leet2git(ctx, source_repository: str, language: str):
 @leet2git.command()
 @click.argument("id", type=int)
 @click.pass_obj
-def get_question(cm: ConfigManager, id: int):
+def get(cm: ConfigManager, id: int):
     """Generates all the files for a question
 
     Args:
@@ -81,7 +81,7 @@ def get_question(cm: ConfigManager, id: int):
 @leet2git.command()
 @click.argument("id", type=int)
 @click.pass_obj
-def submit_question(cm: ConfigManager, id: int):
+def submit(cm: ConfigManager, id: int):
     """Submit a question to Leetcode
 
     Args:
@@ -106,7 +106,7 @@ def submit_question(cm: ConfigManager, id: int):
 
 @leet2git.command()
 @click.pass_obj
-def get_all_submissions(cm: ConfigManager):
+def import_all(cm: ConfigManager):
     """Get all solutions and generate their files"""
     qdb: QuestionDB = QuestionDB(cm.config)
     lc = LeetcodeClient()
@@ -196,7 +196,7 @@ def get_all_submissions(cm: ConfigManager):
 @leet2git.command()
 @click.argument("id", type=int)
 @click.pass_obj
-def remove_question(cm: ConfigManager, id: int):
+def delete(cm: ConfigManager, id: int):
     """Delete a question and its files
 
     Args:
