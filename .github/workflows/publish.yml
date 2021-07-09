@@ -2,7 +2,7 @@ name: Upload Python Package
 
 on:
   push:
-    branches: [main]
+    branches: [test]
 
 jobs:
   deploy:
@@ -27,7 +27,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         WITH_V: true
-        RELEASE_BRANCHES: main
+        RELEASE_BRANCHES: test
     - name: Temporary Step
       run: |
         echo ${{ steps.bump_version.outputs.new_tag }}
@@ -35,6 +35,13 @@ jobs:
         echo ${{ steps.bump_version.outputs.part }}
     - name: Update app version
       run: python src/leet2git/version.py ${{ steps.bump_version.outputs.tag }}
+    - name: Update resources
+      uses: test-room-7/action-update-file@v1
+      with:
+          file-path: src/leet2git/version.py
+          commit-msg: bump version
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          branch: test
     # will be enabled later
     # - name: Build package
     #   run: python -m build
