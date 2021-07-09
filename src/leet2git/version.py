@@ -17,6 +17,15 @@ def version_info() -> str:
 
 
 def update_version_string(new_version: str):
+    """Updates the version string
+
+    Args:
+        new_version (str): the new version
+    """
+    # remove trailing v
+    if new_version and new_version[0] == "v":
+        new_version = new_version[1:]
+
     if not re.match(r"^(\d+\.)?(\d+\.)?(\d+)$", new_version):
         print(f"Version {new_version} is not valid")
         return
