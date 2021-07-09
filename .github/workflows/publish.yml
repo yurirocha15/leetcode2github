@@ -1,0 +1,52 @@
+name: Upload Python Package
+
+on:
+  push:
+    branches: [test]
+
+jobs:
+  deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: '0'
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8.x'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build
+    - name: Bump version and push tag
+      uses: anothrNick/github-tag-action@1.26.0
+      id: bump_version
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        WITH_V: true
+        RELEASE_BRANCHES: test
+    - name: Temporary Step
+      run: |
+        echo ${{ steps.bump_version.outputs.new_tag }}
+        echo ${{ steps.bump_version.outputs.tag }}
+        echo ${{ steps.bump_version.outputs.part }}
+    - name: Update app version
+      run: python src/leet2git/version.py ${{ steps.bump_version.outputs.tag }}
+    - name: Update resources
+      uses: test-room-7/action-update-file@v1
+      with:
+          file-path: src/leet2git/version.py
+          commit-msg: bump version
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          branch: test
+    # will be enabled later
+    # - name: Build package
+    #   run: python -m build
+    # - name: Publish package
+    #   uses: pypa/gh-action-pypi-publish@release/v1
+    #   with:
+    #     user: __token__
+    #     password: ${{ secrets.PYPI_API_TOKEN }}
