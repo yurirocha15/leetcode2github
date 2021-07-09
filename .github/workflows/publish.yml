@@ -35,13 +35,12 @@ jobs:
         echo ${{ steps.bump_version.outputs.part }}
     - name: Update app version
       run: python src/leet2git/version.py ${{ steps.bump_version.outputs.tag }}
-    - name: Update resources
-      uses: test-room-7/action-update-file@v1
+    - name: Push to protected branch
+      uses: CasperWA/push-protected@v2
       with:
-          file-path: src/leet2git/version.py
-          commit-msg: bump version
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          branch: test
+        token: ${{ secrets.PUSH_TO_PROTECTED_BRANCH }}
+        branch: test
+        unprotect_reviews: true
     # will be enabled later
     # - name: Build package
     #   run: python -m build
