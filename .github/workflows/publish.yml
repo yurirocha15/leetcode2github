@@ -33,6 +33,8 @@ jobs:
         echo ${{ steps.bump_version.outputs.new_tag }}
         echo ${{ steps.bump_version.outputs.tag }}
         echo ${{ steps.bump_version.outputs.part }}
+    - name: Update app version
+      run: python src/leet2git/version.py ${{ steps.bump_version.outputs.tag }}
     # will be enabled later
     # - name: Build package
     #   run: python -m build
