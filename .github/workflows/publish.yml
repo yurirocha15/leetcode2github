@@ -36,7 +36,9 @@ jobs:
     - name: Update app version
       run: | 
         python src/leet2git/version.py ${{ steps.bump_version.outputs.tag }}
-        git add --all
+        git config user.email "yurirocha15@gmail.com"
+        git config user.name "Yuri Rocha"
+        git add src/leet2git/version.py
         git commit -m "bump version to ${{ steps.bump_version.outputs.tag }}"
     - name: Push to protected branch
       uses: CasperWA/push-protected@v2
