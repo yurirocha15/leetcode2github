@@ -3,7 +3,7 @@ import platform
 import re
 import sys
 
-__version__ = "0.23.0"
+__version__ = "0.24.0"
 
 
 def version_info() -> str:
