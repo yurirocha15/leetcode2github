@@ -1,0 +1,24 @@
+{
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "yurirocha15",
+      "name": "Yuri Rocha",
+      "avatar_url": "https://avatars.githubusercontent.com/u/4281771?v=4",
+      "profile": "https://www.yurirocha.com",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "projectName": "leetcode2github",
+  "projectOwner": "yurirocha15",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "skipCi": true
+}
