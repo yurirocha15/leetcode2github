@@ -233,7 +233,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <table>
   <tr>
     <td align="center"><a href="https://www.yurirocha.com"><img src="https://avatars.githubusercontent.com/u/4281771?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Yuri Rocha</b></sub></a><br /><a href="https://github.com/yurirocha15/leetcode2github/commits?author=yurirocha15" title="Code">💻</a></td>
-    <td align="center"><a href="https://github.com/sungho-joo"><img src="https://avatars.githubusercontent.com/u/53804787?v=4?s=100" width="100px;" alt=""/><br /><sub><b>sungho-joo</b></sub></a><br /><a href="https://github.com/yurirocha15/leetcode2github/commits?author=sungho-joo" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/sungho-joo"><img src="https://avatars.githubusercontent.com/u/53804787?v=4?s=100" width="100px;" alt=""/><br /><sub><b>sungho-joo</b></sub></a><br /><a href="https://github.com/yurirocha15/leetcode2github/commits?author=sungho-joo" title="Code">💻</a> <a href="https://github.com/yurirocha15/leetcode2github/issues?q=author%3Asungho-joo" title="Bug reports">🐛</a></td>
   </tr>
 </table>
 
