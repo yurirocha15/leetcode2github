@@ -4,7 +4,7 @@ on: push
 
 jobs:
   format-lint:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: conda-incubator/setup-miniconda@v2
@@ -18,3 +18,6 @@ jobs:
     - name: Format with black and isort
       shell: bash -l {0}
       run: make format
+    - name: Lint with flake8, mypy and pylint
+      shell: bash -l {0}
+      run: make lint
