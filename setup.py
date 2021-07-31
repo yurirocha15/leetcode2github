@@ -18,11 +18,12 @@ with open("README.md", "r") as readme_file:
 def pip(filename):
     """Parse pip reqs file and transform it to setuptools requirements."""
     requirements = []
-    for line in io.open(os.path.join("requirements", f"{filename}.txt")):
-        line = line.strip()
-        if not line or "://" in line or line.startswith("#"):
-            continue
-        requirements.append(line)
+    with open(os.path.join("requirements", f"{filename}.txt"), "r") as file:
+        for line in file:
+            line = line.strip()
+            if not line or "://" in line or line.startswith("#"):
+                continue
+            requirements.append(line)
     return requirements
 
 
