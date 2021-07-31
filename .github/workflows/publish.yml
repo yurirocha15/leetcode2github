@@ -29,6 +29,7 @@ jobs:
       id: bump_version
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        DEFAULT_BUMP: none
         WITH_V: false
         RELEASE_BRANCHES: main
         DRY_RUN: true
