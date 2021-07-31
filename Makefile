@@ -2,6 +2,9 @@ format:
 	isort .
 	black .
 
+lint:
+	env PYTHONPATH=src pytest src --pylint --flake8 --mypy
+
 setup:
 	pip install -e .
 
