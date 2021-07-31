@@ -10,8 +10,8 @@ setup:
 
 setup-dev:
 	make setup
-	pip install -r requirements.txt
-	pip install -r requirements-dev.txt
+	pip install -r requirements/requirements.txt
+	pip install -r requirements/requirements-dev.txt
 
 utest:
 	env PYTHONPATH=src pytest tests -s --verbose --cov=src --cov-report=html --cov-report=term-missing --suppress-no-test-exit-code
