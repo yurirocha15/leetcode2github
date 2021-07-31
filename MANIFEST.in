@@ -1,0 +1,5 @@
+include README.md MANIFEST.in LICENSE setup.py pyproject.toml
+recursive-include src *
+recursive-include requirements *.txt
+
+global-exclude *.pyc
