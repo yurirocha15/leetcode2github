@@ -1,15 +1,21 @@
+"""
+Handles the connection with github API
+Authors:
+    - Yuri Rocha (yurirocha15@gmail.com)
+"""
 import json
 import os
 import platform
 import re
 import time
 import traceback
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import browser_cookie3
 import click
 import requests
 from bs4 import BeautifulSoup
+from requests.models import Response
 
 from leet2git.question_db import IdTitleMap, QuestionData
 
@@ -32,21 +38,17 @@ class LeetcodeClient:
         Returns:
             Tuple[str, str]: the raw cookies and the csrftoken
         """
-        url = "https://leetcode.com/profile/"
+        url: str = "https://leetcode.com/profile/"
         client = requests.session()
-        try:
-            browsers = (browser_cookie3.chrome, browser_cookie3.firefox)
-        except browser_cookie3.BrowserCookieError as e:
-            click.secho(e.args, fg="red")
-            click.secho(traceback.format_exc())
+        browsers = (browser_cookie3.chrome, browser_cookie3.firefox)
 
         for browser in browsers:
             try:
                 r = client.get(url, cookies=browser())
                 cookies = r.request.headers["Cookie"]
                 csrftoken = client.cookies["csrftoken"]
-            except:
-                continue
+            except browser_cookie3.BrowserCookieError as e:
+                click.secho(e.args, fg="red")
             if csrftoken:
                 break
 
@@ -75,12 +77,12 @@ class LeetcodeClient:
         return headers
 
     def get_question_data(
-        self, id: int, title_slug: str, language: str, code: Optional[str] = ""
+        self, question_id: int, title_slug: str, language: str, code: Optional[str] = ""
     ) -> Tuple[QuestionData, bool]:
         """Gets the data from a question
 
         Args:
-            id (int): the question id
+            question_id (int): the question id
             title_slug (str): the question title
             language str: the language to download the code
             code (Optional[str]): the question solution
@@ -91,7 +93,7 @@ class LeetcodeClient:
 
         leetcode_question_data = self.scrap_question_data(title_slug)
 
-        data = QuestionData(id=id, creation_time=time.time())
+        data = QuestionData(id=question_id, creation_time=time.time())
         data.internal_id = int(leetcode_question_data["data"]["question"]["questionId"])
         data.title = leetcode_question_data["data"]["question"]["title"]
         data.url = (
@@ -158,18 +160,18 @@ class LeetcodeClient:
 
         return data, True
 
-    def scrap_question_data(self, question_name: str) -> List[Dict[str, Any]]:
+    def scrap_question_data(self, question_name: str) -> Dict[str, Dict[str, Any]]:
         """Query a question information
 
         Args:
             question_name (str): the question slug (which is inside the leetcode url)
 
         Returns:
-            List[Dict[str, str]]: the categories information
+            Dict[str, Dict[str, Any]]: the categories information
         """
-        url = "https://leetcode.com/graphql"
+        url: str = "https://leetcode.com/graphql"
 
-        payload = json.dumps(
+        payload: str = json.dumps(
             {
                 "operationName": "questionData",
                 "variables": {"titleSlug": question_name},
@@ -213,7 +215,7 @@ class LeetcodeClient:
             }
         )
 
-        response = requests.request("POST", url, headers=self.get_headers(), data=payload)
+        response: Response = requests.request("POST", url, headers=self.get_headers(), data=payload)
         return json.loads(response.text)
 
     def get_latest_submission(self, qid: str, language: str) -> str:
@@ -227,14 +229,14 @@ class LeetcodeClient:
         Returns:
             str: the submitted code
         """
-        url = f"https://leetcode.com/submissions/latest/?qid={qid}&lang={language}"
+        url: str = f"https://leetcode.com/submissions/latest/?qid={qid}&lang={language}"
 
-        payload = {}
-        raw_code = ""
+        payload: str = ""
+        raw_code: str = ""
         try:
-            response = requests.request("GET", url, headers=self.get_headers(), data=payload)
+            response: Response = requests.request("GET", url, headers=self.get_headers(), data=payload)
             raw_code = json.loads(response.text)["code"]
-        except Exception as e:
+        except RuntimeError as e:
             click.secho(e.args, fg="red")
             click.secho(traceback.format_exc())
         return raw_code
@@ -248,9 +250,9 @@ class LeetcodeClient:
             language (str): the language of the code
         """
 
-        url = "https://leetcode.com/problems/two-sum/submit/"
+        url: str = "https://leetcode.com/problems/two-sum/submit/"
 
-        payload = json.dumps(
+        payload: str = json.dumps(
             {
                 "question_id": internal_id,
                 "lang": language,
@@ -258,16 +260,16 @@ class LeetcodeClient:
             }
         )
 
-        response = requests.request("POST", url, headers=self.get_headers(), data=payload)
+        response: Response = requests.request("POST", url, headers=self.get_headers(), data=payload)
         submission_id: int = json.loads(response.text)["submission_id"]
         click.secho("Waiting for submission results...")
         url = f"https://leetcode.com/submissions/detail/{submission_id}/check/"
 
-        payload = {}
-        status = ""
+        payload = ""
+        status: str = ""
         while status != "SUCCESS":
             response = requests.request("GET", url, headers=self.get_headers(), data=payload)
-            submission_result = json.loads(response.text)
+            submission_result: Dict[str, Any] = json.loads(response.text)
             status = submission_result["state"]
             time.sleep(1)
 
@@ -275,10 +277,12 @@ class LeetcodeClient:
         click.secho(f'Result: {submission_result["status_msg"]}')
         if submission_result["status_code"] == 10:
             click.secho(
-                f'Total Runtime: {submission_result["status_runtime"]} (Better than {submission_result["runtime_percentile"]:.2f}%)'
+                f'Total Runtime: {submission_result["status_runtime"]} \
+                    (Better than {submission_result["runtime_percentile"]:.2f}%)'
             )
             click.secho(
-                f'Total Memory: {submission_result["status_memory"]} (Better than {submission_result["memory_percentile"]:.2f}%)'
+                f'Total Memory: {submission_result["status_memory"]} \
+                    (Better than {submission_result["memory_percentile"]:.2f}%)'
             )
         elif submission_result["status_code"] == 11:
             click.secho(f'Last Input: {submission_result["input_formatted"]}')
@@ -304,11 +308,11 @@ class LeetcodeClient:
         Returns:
             Dict[str, Any]: the query response
         """
-        url = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey={last_key}"
+        url: str = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey={last_key}"
 
-        payload = {}
+        payload: str = ""
 
-        response = requests.request("GET", url, headers=self.get_headers(), data=payload)
+        response: Response = requests.request("GET", url, headers=self.get_headers(), data=payload)
 
         return json.loads(response.text)
 
@@ -318,11 +322,11 @@ class LeetcodeClient:
         Returns:
             IdTitleMap: maps the id to the title slug
         """
-        url = "https://leetcode.com/api/problems/all/"
+        url: str = "https://leetcode.com/api/problems/all/"
 
-        payload = {}
+        payload: str = ""
 
-        response = requests.request("GET", url, headers=self.get_headers(), data=payload)
+        response: Response = requests.request("GET", url, headers=self.get_headers(), data=payload)
 
         id_title_map: IdTitleMap = IdTitleMap()
         for stat in json.loads(response.text)["stat_status_pairs"]:
@@ -339,4 +343,4 @@ class LeetcodeClient:
 
 if __name__ == "__main__":
     lc = LeetcodeClient()
-    print(lc.get_question_data(1848))
+    print(lc.get_question_data(1848, "minimum-distance-to-the-target-element", "python"))

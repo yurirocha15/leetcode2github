@@ -1,3 +1,8 @@
+"""
+File Handler for python language
+Authors:
+    - Yuri Rocha (yurirocha15@gmail.com)
+"""
 import ast
 import os
 import re
@@ -15,7 +20,12 @@ from leet2git.question_db import QuestionData
 class PythonHandler(FileHandler):
     """Generates the source and test python files"""
 
-    languages = ["python", "python3"]
+    languages: List[str] = ["python", "python3"]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.question_data: QuestionData = QuestionData()
+        self.config: Dict[str, Any] = {}
 
     def set_data(self, question_data: QuestionData, config: Dict[str, Any]):
         """Sets the data needed to generate the files
@@ -60,7 +70,7 @@ class PythonHandler(FileHandler):
                 comment + f" [{self.question_data.id}] {self.question_data.title}\n",
                 comment + f" Difficulty: {self.question_data.difficulty}\n",
                 comment + f" {self.question_data.url}\n",
-                comment + f"\n",
+                comment + "\n",
             ]
             + description
             + [
@@ -74,7 +84,7 @@ class PythonHandler(FileHandler):
             else (self.question_data.question_template, False)
         )
         code_lines = self.parse_raw_code(code, is_solution)
-        lines.extend([l for l in code_lines])
+        lines.extend(code_lines)
         self.question_data.file_path += extension
 
         full_path: str = os.path.join(self.config["source_path"], self.question_data.file_path)
@@ -84,11 +94,7 @@ class PythonHandler(FileHandler):
 
         # fix imports
         with open(full_path, "r+", encoding="UTF8") as f:
-            try:
-                fix_files([f])
-            except Exception as e:
-                click.secho(e.args, fg="red")
-                click.secho(traceback.format_exc())
+            fix_files((f,))
 
         # add main
         with open(full_path, "a", encoding="UTF8") as f:
@@ -102,19 +108,7 @@ class PythonHandler(FileHandler):
             )
             f.write("")
 
-        try:
-            subprocess.run(
-                f"isort --profile=black {full_path}",
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                shell=True,
-            )
-            subprocess.run(
-                f"black {full_path}", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True
-            )
-        except Exception as e:
-            click.secho(e.args, fg="red")
-            click.secho(traceback.format_exc())
+        self.run_black_and_isort(full_path)
 
         return self.question_data.file_path
 
@@ -138,12 +132,12 @@ class PythonHandler(FileHandler):
         if len(self.question_data.function_name) > 1:
             inputs = []
             outputs = []
-            for input, output in zip(self.question_data.inputs, self.question_data.outputs):
-                tmp_inputs = input.split(", ")
+            for q_input, q_output in zip(self.question_data.inputs, self.question_data.outputs):
+                tmp_inputs = q_input.split(", ")
                 inputs.append([])
                 for tmp_input in tmp_inputs:
                     inputs[-1].append(ast.literal_eval(tmp_input))
-                outputs.append(ast.literal_eval(output))
+                outputs.append(ast.literal_eval(q_output))
         elif not self.question_data.function_name:
             raise ValueError("No function name")
         full_path: str = os.path.join(
@@ -168,16 +162,19 @@ class PythonHandler(FileHandler):
             f.write(f"def init_variables_{self.question_data.id}():\n")
             if len(self.question_data.function_name) == 1:
                 f.write(f"    from src.{self.question_data.file_path[4:-3]} import Solution\n")
-                f.write(f"    solution = Solution()\n")
+                f.write("    solution = Solution()\n")
             else:
                 try:
                     f.write(
-                        f"    from src.{self.question_data.file_path[4:-3]} import {self.question_data.function_name[0]}\n"
+                        f"    from src.{self.question_data.file_path[4:-3]} \
+                            import {self.question_data.function_name[0]}\n"
                     )
                     f.write(
-                        f"    solution = {self.question_data.function_name[0]}({str(inputs[0][1][0])[1:-1]})\n"
+                        f"    solution = {self.question_data.function_name[0]}\
+                            ({str(inputs[0][1][0])[1:-1]})\n"
                     )
-                except Exception as e:
+                # if we meet a question with some wild inputs
+                except ValueError as e:
                     print(e.args)
                     print(self.question_data)
             f.write("\n")
@@ -187,42 +184,32 @@ class PythonHandler(FileHandler):
             f.write(f"    yield _init_variables_{self.question_data.id}\n")
             f.write("\n")
             f.write(f"class TestClass{self.question_data.id}:")
-            for i in range(len(inputs)):
+            for i, (q_input, q_output) in enumerate(zip(inputs, outputs)):
                 f.write("\n")
                 f.write(f"    def test_solution_{i}(self, init_variables_{self.question_data.id}):\n")
                 if len(self.question_data.function_name) == 1:
                     f.write(
-                        f"        assert"
-                        + (" not" if outputs[i] == "False" else "")
-                        + f" init_variables_{self.question_data.id}().{self.question_data.function_name[0]}({inputs[i]})"
-                        + (f" == {outputs[i]}" if outputs[i] not in ["True", "False"] else "")
+                        "        assert"
+                        + (" not" if q_output == "False" else "")
+                        + f" init_variables_{self.question_data.id}().\
+                            {self.question_data.function_name[0]}({q_input})"
+                        + (f" == {q_output}" if q_output not in ["True", "False"] else "")
                         + "\n"
                     )
                 else:
                     for input_func, input_val, output in zip(
-                        inputs[i][0][1:], inputs[i][1][1:], outputs[i][1:]
+                        q_input[0][1:], q_input[1][1:], q_output[1:]
                     ):
                         f.write(
-                            f"        assert"
+                            "        assert"
                             + (" not" if output == "False" else "")
-                            + f" init_variables_{self.question_data.id}().{input_func}({str(input_val)[1:-1]})"
+                            + f" init_variables_{self.question_data.id}().\
+                                {input_func}({str(input_val)[1:-1]})"
                             + (f" == {output}" if output not in ["True", "False"] else "")
                             + "\n"
                         )
 
-        try:
-            subprocess.run(
-                f"isort --profile=black {full_path}",
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                shell=True,
-            )
-            subprocess.run(
-                f"black {full_path}", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True
-            )
-        except Exception as e:
-            click.secho(e.args, fg="red")
-            click.secho(traceback.format_exc())
+        self.run_black_and_isort(full_path)
 
         return os.path.join("tests", f"test_{self.question_data.id}{extension}")
 
@@ -268,9 +255,34 @@ class PythonHandler(FileHandler):
             List[str]: a list of lines of code
         """
         lines = []
-        for i, line in enumerate(raw_code.split("\n")):
+        for _, line in enumerate(raw_code.split("\n")):
             lines.append(line + "\n")
             if re.match(r"^\s+def\s+(.*?)\(self,", line) and not is_solution:
                 lines.append("        pass\n")
 
         return lines
+
+    def run_black_and_isort(self, file_path: str) -> None:
+        """Run black and isort in a file
+
+        Args:
+            file_path (str): the path to the file
+        """
+        try:
+            subprocess.run(
+                f"isort --profile=black {file_path}",
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                shell=True,
+                check=True,
+            )
+            subprocess.run(
+                f"black {file_path}",
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                shell=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            click.secho(e.args, fg="red")
+            click.secho(traceback.format_exc())

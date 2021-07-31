@@ -1,3 +1,8 @@
+"""
+Version management
+Authors:
+    - Yuri Rocha (yurirocha15@gmail.com)
+"""
 import os
 import platform
 import re
@@ -38,7 +43,7 @@ def update_version_string(new_version: str):
         f.write(
             re.sub(
                 version_regex,
-                lambda match: "{}{}".format(match.group(1), new_version),
+                lambda match: f"{match.group(1)}{new_version}",
                 content,
             )
         )

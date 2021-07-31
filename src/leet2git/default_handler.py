@@ -1,6 +1,9 @@
-import ast
+"""
+File Handler for languages without a specific handler
+Authors:
+    - Yuri Rocha (yurirocha15@gmail.com)
+"""
 import os
-import re
 from typing import Any, Dict, List
 
 from leet2git.file_handler import FileHandler
@@ -10,7 +13,12 @@ from leet2git.question_db import QuestionData
 class DefaultHandler(FileHandler):
     """Generates the source files for languages without handlers"""
 
-    languages = []
+    languages: List[str] = []
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.question_data: QuestionData = QuestionData()
+        self.config: Dict[str, Any] = {}
 
     def set_data(self, question_data: QuestionData, config: Dict[str, Any]):
         """Sets the data needed to generate the files
@@ -49,7 +57,7 @@ class DefaultHandler(FileHandler):
                 comment + f" [{self.question_data.id}] {self.question_data.title}\n",
                 comment + f" Difficulty: {self.question_data.difficulty}\n",
                 comment + f" {self.question_data.url}\n",
-                comment + f"\n",
+                comment + "\n",
             ]
             + description
             + [
@@ -62,7 +70,7 @@ class DefaultHandler(FileHandler):
             if self.question_data.raw_code
             else self.question_data.question_template
         )
-        lines.extend([l for l in code])
+        lines.extend(code)
         self.question_data.file_path += extension
 
         with open(

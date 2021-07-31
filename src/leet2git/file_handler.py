@@ -1,8 +1,13 @@
+"""
+Abstract class that defines the file handlers
+Authors:
+    - Yuri Rocha (yurirocha15@gmail.com)
+"""
 import os
 import signal
 import traceback
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
 import click
 from git import Repo
@@ -14,7 +19,15 @@ T = TypeVar("T", bound="FileHandler")
 
 
 class FileHandler(ABC):
-    conversions = {
+    """Abstract class for file handlers
+
+    Attributes:
+        conversions (Dict[str, Dict[str, str]]): Variables that change with each language.
+        languages (List[str]): List of languages this handler generates files to
+    """
+
+    languages: List[str] = []
+    conversions: Dict[str, Dict[str, str]] = {
         "bash": {"extension": ".sh", "comment": "#"},
         "c": {"extension": ".c", "comment": "//"},
         "cpp": {"extension": ".cpp", "comment": "//"},
@@ -33,16 +46,24 @@ class FileHandler(ABC):
         "swift": {"extension": ".swift", "comment": "//"},
     }
 
-    def __new__(cls: Type[T], data: QuestionData, config: Dict[str, Any]) -> T:
-        subclasses: Dict[str, FileHandler] = {
-            l: subclass for subclass in cls.__subclasses__() for l in subclass.languages
+    @classmethod
+    def get_handler_type(cls: Type[T], config: Dict[str, Any]) -> Type[T]:
+        """Returns the type of the correct subclass
+
+        Args:
+            cls (Type[FileHandler]): this class type
+            config (Dict[str, Any]): the user config
+
+        Returns:
+            Type[FileHandler]: the type of the correct subclass
+        """
+        subclasses: Dict[str, Type[T]] = {
+            language: subclass for subclass in cls.__subclasses__() for language in subclass.languages
         }
-        subclass = DefaultHandler
+        subclass: Type[T] = DefaultHandler
         if config["language"].lower() in subclasses:
             subclass = subclasses[config["language"].lower()]
-        instance = super(FileHandler, subclass).__new__(subclass)
-        instance.set_data(data, config)
-        return instance
+        return subclass
 
     def check_if_exists(self, language: str) -> bool:
         """Check if there is a handler for a given language
@@ -55,7 +76,7 @@ class FileHandler(ABC):
         """
         return language.lower() in self.conversions
 
-    def generate_repo(self, folder_path: str):
+    def generate_repo(self, folder_path: str) -> None:
         """Generates a git repository
 
         Args:
@@ -67,27 +88,69 @@ class FileHandler(ABC):
         os.makedirs(os.path.join(folder_path, "src"), exist_ok=True)
 
     @abstractmethod
-    def set_data(self, question_data: QuestionData, config: Dict[str, Any]):
+    def set_data(self, question_data: QuestionData, config: Dict[str, Any]) -> None:
+        """Abstract method definition
+
+        Raises:
+            NotImplementedError: should be implemented by child classes
+        """
         raise NotImplementedError
 
     @abstractmethod
     def get_function_name(self) -> str:
+        """Abstract method definition
+
+        Raises:
+            NotImplementedError: should be implemented by child classes
+        """
         raise NotImplementedError
 
     @abstractmethod
     def generate_source(self) -> str:
+        """Abstract method definition
+
+        Raises:
+            NotImplementedError: should be implemented by child classes
+        """
         raise NotImplementedError
 
     @abstractmethod
     def generete_tests(self) -> str:
+        """Abstract method definition
+
+        Raises:
+            NotImplementedError: should be implemented by child classes
+        """
         raise NotImplementedError
 
     @abstractmethod
-    def generate_submission_file(self):
+    def generate_submission_file(self) -> None:
+        """Abstract method definition
+
+        Raises:
+            NotImplementedError: should be implemented by child classes
+        """
         raise NotImplementedError
 
 
 # helper function
+# pylint: disable=abstract-class-instantiated
+
+
+def create_file_handler(data: QuestionData, config: Dict[str, Any]) -> FileHandler:
+    """Create an instance of a File Handler
+
+    Args:
+        data (QuestionData): the question data
+        config (Dict[str, Any]): the user configuration
+
+    Returns:
+        FileHandler: [description]
+    """
+    handler_type: Type[FileHandler] = FileHandler.get_handler_type(config)
+    file_handler = super(FileHandler, handler_type).__new__(handler_type)
+    file_handler.set_data(data, config)
+    return file_handler
 
 
 def generate_files(
@@ -98,7 +161,18 @@ def generate_files(
     timestamp: float,
     config: Dict[str, Any],
     code: Optional[str] = "",
-):
+) -> None:
+    """Auxiliar function to generate the question files
+
+    Args:
+        args (Dict[int, QuestionData]): a dictionary managed by the subprocess manager
+        qid (int): the question id
+        title_slug (str): the question title-slug property
+        lc (LeetcodeClient): LeetcodeClient object
+        timestamp (float): the time the question was generated
+        config (Dict[str, Any]): the user config
+        code (Optional[str], optional): the question solution. Defaults to "".
+    """
     s = signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         data, is_new = lc.get_question_data(qid, title_slug, config["language"], code)
@@ -112,7 +186,7 @@ def generate_files(
         # generate
         data.language = config["language"]
         data.creation_time = timestamp
-        file_handler = FileHandler(data, config)
+        file_handler = create_file_handler(data, config)
         data.function_name = file_handler.get_function_name()
         data.file_path = file_handler.generate_source()
         if data.inputs and data.outputs:
@@ -124,6 +198,6 @@ def generate_files(
 
 
 # child classes (need to be imported in order to be instantiated)
-
-from leet2git.default_handler import DefaultHandler
-from leet2git.python_handler import PythonHandler
+# pylint: disable=wrong-import-position disable=unused-import
+from leet2git.default_handler import DefaultHandler  # noqa
+from leet2git.python_handler import PythonHandler  # noqa
