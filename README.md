@@ -1,7 +1,16 @@
 # leet2git
+[![Build Status](https://github.com/yurirocha15/leetcode2github/workflows/Build/badge.svg)](https://github.com/yurirocha15/leetcode2github/workflows/Build/badge.svg)
+[![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-380/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Imports: isort](https://img.shields.io/badge/imports-isort-white)](https://pycqa.github.io/isort/)
+[![Linting: flake8 & mypy & pylint](https://img.shields.io/badge/linting-flake8%20%26%20mypy%20%26%20pylint-green)](https://pypi.org/project/pytest-pylint/)
+[![Stable Version](https://img.shields.io/github/v/tag/yurirocha15/leetcode2github)](https://img.shields.io/github/v/tag/yurirocha15/leetcode2github)
+[![Latest Release](https://img.shields.io/github/v/release/yurirocha15/leetcode2github?color=%233D9970)](https://img.shields.io/github/v/release/yurirocha15/leetcode2github?color=%233D9970)
+[![Pypi Version](https://img.shields.io/pypi/v/leet2git)](https://pypi.org/project/leet2git/)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
+
 This repository tries to automate the steps needed to integrate your leetcode answers with github.
 
 This includes:
