@@ -33,6 +33,7 @@ jobs:
         RELEASE_BRANCHES: main
         DRY_RUN: true
     - name: Update app version
+      if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
       run: | 
         python src/leet2git/version.py ${{ steps.bump_version.outputs.new_tag }}
         git config user.email "yurirocha15@gmail.com"
@@ -40,20 +41,24 @@ jobs:
         git add src/leet2git/version.py
         git commit -m "bump version to ${{ steps.bump_version.outputs.new_tag }}"
     - name: Push to protected branch
+      if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
       uses: CasperWA/push-protected@v2
       with:
         token: ${{ secrets.PUSH_TO_PROTECTED_BRANCH }}
         branch: main
         unprotect_reviews: true
     - name: Bump version and push tag
+      if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
       uses: anothrNick/github-tag-action@1.26.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         WITH_V: true
         RELEASE_BRANCHES: main
     - name: Build package
+      if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
       run: python -m build
     - name: Publish package
+      if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         user: __token__
