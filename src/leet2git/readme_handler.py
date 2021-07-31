@@ -1,6 +1,10 @@
+"""
+Handles the REAMDE generation
+Authors:
+    - Yuri Rocha (yurirocha15@gmail.com)
+"""
 import os
 from dataclasses import dataclass, field
-from functools import reduce
 from typing import Any, Dict, List
 
 from leet2git.question_db import QuestionData, QuestionDB
@@ -8,6 +12,8 @@ from leet2git.question_db import QuestionData, QuestionDB
 
 @dataclass
 class ReadmeTable:
+    """Data related to a table"""
+
     title: str = ""
     fields: List[str] = field(default_factory=list)
     values: List[List[str]] = field(default_factory=list)
@@ -111,12 +117,12 @@ class ReadmeHandler:
         """
         with open(self.readme_file, "w", encoding="UTF8") as f:
 
-            f.write(f"# Table of Contents\n")
+            f.write("# Table of Contents\n")
             f.write(f"[{main_table.title}](#summary)\n")
             if self.print_difficulty:
-                f.write(f"[Difficulty](#difficulty)\n")
+                f.write("[Difficulty](#difficulty)\n")
             if self.print_categories:
-                f.write(f"[Categories](#categories)\n")
+                f.write("[Categories](#categories)\n")
 
             f.write(f"# <a name='summary'></a>{main_table.title}\n")
             f.write("\n")
@@ -154,10 +160,11 @@ class ReadmeHandler:
                     for value in table[1].values:
                         f.write("|" + "|".join(value) + "|\n")
 
-            f.write(f"\n")
-            f.write(f"\n")
+            f.write("\n")
+            f.write("\n")
             f.write(
-                f"Automatically generated using [Leet2Git](https://github.com/yurirocha15/leetcode2github).\n"
+                "Automatically generated using \
+                    [Leet2Git](https://github.com/yurirocha15/leetcode2github).\n"
             )
 
 

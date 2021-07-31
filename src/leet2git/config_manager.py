@@ -1,3 +1,8 @@
+"""
+Manages the configuration files
+Authors:
+    - Yuri Rocha (yurirocha15@gmail.com)
+"""
 import json
 import os
 from typing import Any, Dict, Optional
@@ -14,7 +19,7 @@ class ConfigManager:
         self._config_path = ad.user_config_dir
         self._data_path = ad.user_data_dir
         self._config_file = os.path.join(self._config_path, "config.json")
-        self._config: Dict[str, Any] = {}
+        self._config: Dict[str, Any] = None
         os.makedirs(self._config_path, exist_ok=True)
         os.makedirs(self._data_path, exist_ok=True)
         if not os.path.isfile(self._config_file):
@@ -27,14 +32,20 @@ class ConfigManager:
         Returns:
             Dict[str, Any]: the user configuration
         """
-        return self._config
+        config = self._config
+        if not config:
+            config = {}
+        return config
 
-    def load_config(self, override_config: Optional[Dict[str, Any]] = {}):
+    def load_config(self, override_config: Optional[Dict[str, Any]] = None):
         """Loads the configuration
 
         Args:
-            override_config (Optional[Dict[str, Any]]): values that should be overriden. Defaults to an empty dict.
+            override_config (Optional[Dict[str, Any]]): values that should be overriden.
+            Defaults to an empty dict.
         """
+        if not override_config:
+            override_config = {}
         with open(self._config_file, "r") as file:
             self._config = json.load(file)
         self._config["data_path"] = self._data_path
@@ -71,4 +82,4 @@ class ConfigManager:
 
 if __name__ == "__main__":
     cm = ConfigManager()
-    cm.reset_config()
+    cm.reset_config(repo_path="")

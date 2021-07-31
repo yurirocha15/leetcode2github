@@ -1,13 +1,19 @@
+"""
+Handles the local question database
+Authors:
+    - Yuri Rocha (yurirocha15@gmail.com)
+"""
 import operator
 import os
 import pickle
-import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
 class QuestionData:
+    """Stores all the data related to a question"""
+
     title: str = ""
     url: str = ""
     id: int = 0
@@ -28,6 +34,8 @@ class QuestionData:
 
 @dataclass
 class IdTitleMap:
+    """Maps Ids and title slugs"""
+
     id_to_title: Dict[int, str] = field(default_factory=dict)
     title_to_id: Dict[str, int] = field(default_factory=dict)
 
@@ -65,9 +73,17 @@ class QuestionDB:
         """
         return self.question_data_dict
 
-    def get_question(self, id: int) -> QuestionData:
-        if self.check_if_exists(id):
-            return self.question_data_dict[id]
+    def get_question(self, question_id: int) -> Optional[QuestionData]:
+        """get a question data if it exists
+
+        Args:
+            question_id (int): the question id
+
+        Returns:
+            Optional[QuestionData]: the question data
+        """
+        if self.check_if_exists(question_id):
+            return self.question_data_dict[question_id]
         return None
 
     def add_question(self, qd: QuestionData):
@@ -78,14 +94,14 @@ class QuestionDB:
         """
         self.question_data_dict[qd.id] = qd
 
-    def delete_question(self, id: int):
+    def delete_question(self, question_id: int):
         """Removes a question from the dictionary
 
         Args:
-            id (int): the question id
+            question_id (int): the question id
         """
-        if id in self.question_data_dict:
-            self.question_data_dict.pop(id)
+        if question_id in self.question_data_dict:
+            self.question_data_dict.pop(question_id)
 
     def get_sorted_list(self, sort_by: str) -> List[QuestionData]:
         """Returns a sorted list with all the questions
@@ -99,40 +115,40 @@ class QuestionDB:
         """
         return sorted(self.question_data_dict.values(), key=operator.attrgetter(sort_by))
 
-    def check_if_exists(self, id: int) -> bool:
+    def check_if_exists(self, question_id: int) -> bool:
         """Checks if a question exists in the database
 
         Args:
-            id (int): the question id
+            question_id (int): the question id
 
         Returns:
             bool: true if the question exists in the database
         """
-        return id in self.question_data_dict
+        return question_id in self.question_data_dict
 
-    def get_title_from_id(self, id: int) -> str:
+    def get_title_from_id(self, question_id: int) -> str:
         """Get the question title slug from its id
 
         Args:
-            id (int): the question id
+            question_id (int): the question id
 
         Returns:
             str: the question title slug
         """
-        if self.check_if_slug_is_known(id):
-            return self.id_title_map.id_to_title[id]
+        if self.check_if_slug_is_known(question_id):
+            return self.id_title_map.id_to_title[question_id]
         return ""
 
-    def check_if_slug_is_known(self, id: int) -> bool:
+    def check_if_slug_is_known(self, question_id: int) -> bool:
         """Checks if the title slug is cached locally
 
         Args:
-            id (int): the question id
+            question_id (int): the question id
 
         Returns:
             bool: true if the title slug is cached locally
         """
-        return id in self.id_title_map.id_to_title
+        return question_id in self.id_title_map.id_to_title
 
     def get_id_from_title(self, slug: str) -> int:
         """Get the question id from its title slug

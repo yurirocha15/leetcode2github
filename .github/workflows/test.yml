@@ -4,7 +4,7 @@ on: push
 
 jobs:
   unittest:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: conda-incubator/setup-miniconda@v2
@@ -15,6 +15,6 @@ jobs:
     - name: Setup
       shell: bash -l {0}
       run: make setup-dev
-    - name: Test solutions
+    - name: Run unit tests
       shell: bash -l {0}
-      run: make test-solutions
+      run: make utest
