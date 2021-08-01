@@ -118,11 +118,11 @@ class ReadmeHandler:
         with open(self.readme_file, "w", encoding="UTF8") as f:
 
             f.write("# Table of Contents\n")
-            f.write(f"[{main_table.title}](#summary)\n")
+            f.write(f"[{main_table.title}](#summary)  \n")
             if self.print_difficulty:
-                f.write("[Difficulty](#difficulty)\n")
+                f.write("[Difficulty](#difficulty)  \n")
             if self.print_categories:
-                f.write("[Categories](#categories)\n")
+                f.write("[Categories](#categories)  \n")
 
             f.write(f"# <a name='summary'></a>{main_table.title}\n")
             f.write("\n")
