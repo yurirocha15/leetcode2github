@@ -51,8 +51,8 @@ def leet2git(
     source_repository: Optional[str] = "",
     language: Optional[str] = "",
 ):
-    """App entrypoint
-
+    """Leet2Git App
+    \f
     Args:
         ctx (Context): the context
         source_repository (str): source repository path
@@ -120,7 +120,53 @@ def submit(cm: ConfigManager, question_id: int):
 
         lc = LeetcodeClient()
         try:
-            lc.submit_question(code, qdb.get_question(question_id).internal_id, cm.config["language"])
+            question_data = qdb.get_question(question_id)
+            title_slug = (
+                question_data.title_slug
+                if question_data.title_slug
+                else qdb.get_title_from_id(question_id)
+            )
+            lc.submit_question(code, question_data.internal_id, title_slug, cm.config["language"])
+        except Exception as e:
+            click.secho(e.args, fg="red")
+            click.secho(traceback.format_exc())
+    else:
+        click.secho(f"Could not find the question with id {question_id}")
+
+
+@leet2git.command()
+@click.argument("question-id", type=int)
+@click.pass_obj
+def run(cm: ConfigManager, question_id: int):
+    """Run a question on Leetcode Servers
+
+    Args:
+        question_id (int): the question question_id
+    """
+    qdb: QuestionDB = QuestionDB(cm.config)
+    qdb.load()
+    # create test file
+    if qdb.check_if_exists(question_id):
+        file_handler = create_file_handler(qdb.get_question(question_id), cm.config)
+        code = file_handler.generate_submission_file()
+
+        lc = LeetcodeClient()
+        try:
+            question_data = qdb.get_question(question_id)
+            title_slug = (
+                question_data.title_slug
+                if question_data.title_slug
+                else qdb.get_title_from_id(question_id)
+            )
+            raw_inputs = "\n".join(["\n".join(i.split(", ")) for i in question_data.inputs])
+            lc.submit_question(
+                code,
+                question_data.internal_id,
+                title_slug,
+                cm.config["language"],
+                True,
+                raw_inputs,
+            )
         except Exception as e:
             click.secho(e.args, fg="red")
             click.secho(traceback.format_exc())

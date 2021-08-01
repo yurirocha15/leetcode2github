@@ -96,6 +96,7 @@ class LeetcodeClient:
         data = QuestionData(id=question_id, creation_time=time.time())
         data.internal_id = int(leetcode_question_data["data"]["question"]["questionId"])
         data.title = leetcode_question_data["data"]["question"]["title"]
+        data.title_slug = leetcode_question_data["data"]["question"]["titleSlug"]
         data.url = (
             "https://leetcode.com/problems/" + leetcode_question_data["data"]["question"]["titleSlug"]
         )
@@ -241,27 +242,43 @@ class LeetcodeClient:
             click.secho(traceback.format_exc())
         return raw_code
 
-    def submit_question(self, code: str, internal_id: str, language: str):
+    def submit_question(
+        self,
+        code: str,
+        internal_id: str,
+        title_slug: str,
+        language: str,
+        is_test: bool = False,
+        test_input: str = "",
+    ):
         """Submit question to Leetcode
 
         Args:
             code (str): the code which will be submitted
             internal_id (str): the question "questionId". (different from "frontend_id")
+            title_slug (str): the question title slug
             language (str): the language of the code
+            is_test (bool): if true, do not submit, only test on leetcode servers
+            test_input (str): input to test. Only used if is_test is True
         """
 
-        url: str = "https://leetcode.com/problems/two-sum/submit/"
-
-        payload: str = json.dumps(
-            {
-                "question_id": internal_id,
-                "lang": language,
-                "typed_code": code,
-            }
+        url: str = f"https://leetcode.com/problems/{title_slug}/" + (
+            "interpret_solution/" if is_test else "submit/"
         )
 
+        payload_dict: Dict[str, str] = {
+            "question_id": internal_id,
+            "lang": language,
+            "typed_code": code,
+        }
+        if is_test:
+            payload_dict["data_input"] = test_input
+            payload_dict["judge_type"] = "large"
+
+        payload: str = json.dumps(payload_dict)
         response: Response = requests.request("POST", url, headers=self.get_headers(), data=payload)
-        submission_id: int = json.loads(response.text)["submission_id"]
+        submission_field: str = "interpret_id" if is_test else "submission_id"
+        submission_id: int = json.loads(response.text)[submission_field]
         click.secho("Waiting for submission results...")
         url = f"https://leetcode.com/submissions/detail/{submission_id}/check/"
 
@@ -277,12 +294,12 @@ class LeetcodeClient:
         click.secho(f'Result: {submission_result["status_msg"]}')
         if submission_result["status_code"] == 10:
             click.secho(
-                f'Total Runtime: {submission_result["status_runtime"]} \
-                    (Better than {submission_result["runtime_percentile"]:.2f}%)'
+                f'Total Runtime: {submission_result["status_runtime"]} '
+                + ("" if is_test else f'(Better than {submission_result["runtime_percentile"]:.2f}%)')
             )
             click.secho(
-                f'Total Memory: {submission_result["status_memory"]} \
-                    (Better than {submission_result["memory_percentile"]:.2f}%)'
+                f'Total Memory: {submission_result["status_memory"]} '
+                + ("" if is_test else f'(Better than {submission_result["memory_percentile"]:.2f}%)')
             )
         elif submission_result["status_code"] == 11:
             click.secho(f'Last Input: {submission_result["input_formatted"]}')

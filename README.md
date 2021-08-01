@@ -57,6 +57,7 @@ Commands:
   import-all  Get all solutions and generate their files
   init        Creates a new configuration file and can generate a git repository.
   reset       Reset the configuration file
+  run         Run a question on Leetcode Servers
   submit      Submit a question to Leetcode
 ```
 
@@ -92,11 +93,24 @@ To generate the files of a given question:
 
 ```shell
 $ leet2git get --help
-Usage: leet2git get [OPTIONS] ID
+Usage: leet2git get [OPTIONS] QUESTION_ID
 
   Generates all the files for a question
 
-  Args:     id (int): the question id
+  Args:     question_id (int): the question id
+```
+
+### Running a Question
+
+To run a question on leetcode servers:
+
+```shell
+$ leet2git run --help
+Usage: leet2git submit [OPTIONS] QUESTION_ID
+
+  Run a question on Leetcode Servers
+
+  Args:     question_id (int): the question id
 ```
 
 ### Submitting a Question
@@ -105,11 +119,11 @@ To submit a question to leetcode:
 
 ```shell
 $ leet2git submit --help
-Usage: leet2git submit [OPTIONS] ID
+Usage: leet2git submit [OPTIONS] QUESTION_ID
 
   Submit a question to Leetcode
 
-  Args:     id (int): the question id
+  Args:     question_id (int): the question id
 ```
 
 ### Removing a Question
@@ -118,11 +132,11 @@ To remove a downloaded problem (delete files and remove from readme):
 
 ```shell
 $ leet2git delete --help
-Usage: leet2git delete [OPTIONS] ID
+Usage: leet2git delete [OPTIONS] QUESTION_ID
 
   Delete a question and its files
 
-  Args:     id (int): the question id
+  Args:     question_id (int): the question id
 ```
 
 ### Reset Repository

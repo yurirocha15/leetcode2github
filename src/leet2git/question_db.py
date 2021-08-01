@@ -15,6 +15,7 @@ class QuestionData:
     """Stores all the data related to a question"""
 
     title: str = ""
+    title_slug: str = ""
     url: str = ""
     id: int = 0
     internal_id: int = 0
