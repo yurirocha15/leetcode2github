@@ -1,0 +1,38 @@
+name: Test Build
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: '0'
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8.x'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build
+    - name: Get next version
+      uses: anothrNick/github-tag-action@9885a4f9af674ba472de91fb3c0cb033ecb32b7e
+      id: bump_version
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        DEFAULT_BUMP: none
+        WITH_V: false
+        RELEASE_BRANCHES: main
+        DRY_RUN: true
+    - name: Print tag version
+      run: | 
+        echo "Current tag: ${{ steps.bump_version.outputs.tag }}"
+        echo "New tag: ${{ steps.bump_version.outputs.new_tag }}"
+    - name: Build package
+      run: python -m build
