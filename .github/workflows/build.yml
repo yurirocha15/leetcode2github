@@ -25,7 +25,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install build
     - name: Get next version
-      uses: anothrNick/github-tag-action@1.26.0
+      uses: anothrNick/github-tag-action@9885a4f9af674ba472de91fb3c0cb033ecb32b7e
       id: bump_version
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -50,9 +50,10 @@ jobs:
         unprotect_reviews: true
     - name: Bump version and push tag
       if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
-      uses: anothrNick/github-tag-action@1.26.0
+      uses: anothrNick/github-tag-action@9885a4f9af674ba472de91fb3c0cb033ecb32b7e
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        DEFAULT_BUMP: none
         WITH_V: true
         RELEASE_BRANCHES: main
     - name: Build package
