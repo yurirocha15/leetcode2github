@@ -47,8 +47,10 @@ Usage: leet2git [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --version                     Show the version and exit.
-  -s, --source-repository TEXT  The path to the folder where the code will be saved. Overrides the default config
-  -l, --language TEXT           The language to run the command. Overrides the default config
+  -s, --source-repository TEXT  The path to the folder where the code will be saved.
+                                Overrides the default config
+  -l, --language TEXT           The language to run the command.
+                                Overrides the default config
   --help                        Show this message and exit.
 
 Commands:
@@ -57,6 +59,7 @@ Commands:
   import-all  Get all solutions and generate their files
   init        Creates a new configuration file and can generate a git repository.
   reset       Reset the configuration file
+  run         Run a question on Leetcode Servers
   submit      Submit a question to Leetcode
 ```
 
@@ -92,11 +95,24 @@ To generate the files of a given question:
 
 ```shell
 $ leet2git get --help
-Usage: leet2git get [OPTIONS] ID
+Usage: leet2git get [OPTIONS] QUESTION_ID
 
   Generates all the files for a question
 
-  Args:     id (int): the question id
+  Args:     question_id (int): the question id
+```
+
+### Running a Question
+
+To run a question on leetcode servers:
+
+```shell
+$ leet2git run --help
+Usage: leet2git submit [OPTIONS] QUESTION_ID
+
+  Run a question on Leetcode Servers
+
+  Args:     question_id (int): the question id
 ```
 
 ### Submitting a Question
@@ -105,11 +121,11 @@ To submit a question to leetcode:
 
 ```shell
 $ leet2git submit --help
-Usage: leet2git submit [OPTIONS] ID
+Usage: leet2git submit [OPTIONS] QUESTION_ID
 
   Submit a question to Leetcode
 
-  Args:     id (int): the question id
+  Args:     question_id (int): the question id
 ```
 
 ### Removing a Question
@@ -118,11 +134,11 @@ To remove a downloaded problem (delete files and remove from readme):
 
 ```shell
 $ leet2git delete --help
-Usage: leet2git delete [OPTIONS] ID
+Usage: leet2git delete [OPTIONS] QUESTION_ID
 
   Delete a question and its files
 
-  Args:     id (int): the question id
+  Args:     question_id (int): the question id
 ```
 
 ### Reset Repository
@@ -138,7 +154,8 @@ Usage: leet2git reset [OPTIONS]
 Options:
   -s, --source-repository TEXT  the path to the folder where the code will be saved
   -l, --language TEXT           the default language
-  --soft (default) / --hard               A soft reset only erases the database. A hard reset also erase the files.
+  --soft (default) / --hard     A soft reset only erases the database.
+                                A hard reset also erase the files.
 ```
 
 Running this command will open the configuration file in the default editor.
@@ -209,7 +226,7 @@ The path to the code repository
 
 ## Language Support
 
-| Language | Generate/Import Question | Generate Local Tests | Submit Question | Auto Import/Include Libraries |
+| Language | Generate/Import Question | Generate Local Tests | Submit/Run Question | Auto Import/Include Libraries |
 |:--------:|--------------------------|----------------------|-----------------|-------------------------------|
 | bash | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
 | c | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: |
@@ -231,6 +248,8 @@ The path to the code repository
 :heavy_check_mark:: Fully Supported
 :large_orange_diamond:: Partially Supported
 :x:: Not Supported
+
+After stabilizing the code, I am planning to improve the language suport. Contributions are always welcomed ;)
 
 ## Contributors ✨
 
