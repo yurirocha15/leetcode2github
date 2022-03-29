@@ -67,7 +67,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "leet2git = leet2git.leet2git:leet2git",
+            "leet2git = leet2git.main:leet2git",
         ],
     },
 )
