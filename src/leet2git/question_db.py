@@ -9,6 +9,8 @@ import pickle
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from leet2git.data_schema import Difficulty, TopicTags
+
 
 @dataclass
 class QuestionData:
@@ -20,7 +22,7 @@ class QuestionData:
     id: int = 0
     internal_id: int = 0
     creation_time: float = 0.0
-    difficulty: str = ""
+    difficulty: Difficulty = Difficulty.easy
     file_path: str = ""
     test_file_path = ""
     question_template: str = ""
@@ -30,7 +32,7 @@ class QuestionData:
     description: List[str] = field(default_factory=list)
     inputs: List[str] = field(default_factory=list)
     outputs: List[str] = field(default_factory=list)
-    categories: List[Dict[str, str]] = field(default_factory=list)
+    categories: List[TopicTags] = field(default_factory=list)
 
 
 @dataclass
