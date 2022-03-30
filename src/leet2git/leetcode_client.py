@@ -19,6 +19,7 @@ from pydantic import ValidationError
 from requests.models import Response
 
 from leet2git.data_schema import (
+    LeetcodeAllProblems,
     LeetcodeQuestionData,
     LeetcodeSubmissionResult,
     SubmissionStatusCodes,
@@ -40,64 +41,6 @@ class LeetcodeClient:
 
         self.cookies, self.csrftoken = LeetcodeClient._get_cookies()
 
-    @staticmethod
-    def _get_cookies() -> Tuple[str, str]:
-        """Get the cookies from the browser
-
-        Returns:
-            Tuple[str, str]: the raw cookies and the csrftoken
-        """
-        url: str = "https://leetcode.com/profile/"
-        client = requests.session()
-        browsers = (browser_cookie3.chrome, browser_cookie3.firefox)
-
-        for browser in browsers:
-            try:
-                r = client.get(url, cookies=browser())
-                cookies = r.request.headers["Cookie"]
-                csrftoken = client.cookies["csrftoken"]
-            except browser_cookie3.BrowserCookieError as e:
-                click.secho(e.args, fg="red")
-            if csrftoken:
-                break
-
-        return cookies, csrftoken
-
-    def _get_headers(self) -> Dict[str, str]:
-        """Return the headers needed to call leetcode api
-
-        Returns:
-            Dict[str, str]: the call headers
-        """
-        headers = {
-            "authority": "leetcode.com",
-            "pragma": "no-cache",
-            "cache-control": "no-cache",
-            "dnt": "1",
-            "sec-ch-ua-mobile": "?0",
-            "content-type": "application/json",
-            "accept": "*/*",
-            "referer": "https://leetcode.com",
-            "origin": "https://leetcode.com",
-            "x-csrftoken": self.csrftoken,
-            "cookie": self.cookies,
-        }
-
-        return headers
-
-    def _make_request(self, method: str, url: str, payload: str) -> Response:
-        """Makes a request
-
-        Args:
-            method (str): Either GET or POST
-            url (str): the request url
-            payload (str): the request payload
-
-        Returns:
-            Response: the request response
-        """
-        return requests.request(method, url, headers=self._get_headers(), data=payload)
-
     def get_question_data(
         self, question_id: int, title_slug: str, language: str, code: Optional[str] = ""
     ) -> Tuple[QuestionData, bool]:
@@ -113,135 +56,14 @@ class LeetcodeClient:
             QuestionData: The data needed to generate the question files
         """
         try:
-            leetcode_question_data = self.scrap_question_data(title_slug)
+            leetcode_question_data = self._scrap_question_data(title_slug)
         except ValidationError as e:
             raise ValueError(f"Failed to get question {question_id} data") from e
         if not leetcode_question_data:
             raise ValueError(f"Failed to get question {question_id} data.")
 
-        data = QuestionData(id=question_id, creation_time=time.time())
-        data.internal_id = int(leetcode_question_data.questionId)
-        data.title = leetcode_question_data.title
-        data.title_slug = leetcode_question_data.titleSlug
-        data.url = "https://leetcode.com/problems/" + leetcode_question_data.titleSlug
-        data.difficulty = leetcode_question_data.difficulty
-        data.question_template = next(
-            code.code for code in leetcode_question_data.codeSnippets if code.langSlug == language
-        )
-        data.categories = leetcode_question_data.topicTags
-
-        # fix #24. 10<sup>5</sup> becomes 10^5
-        soup = BeautifulSoup(
-            re.sub(
-                r"(?:\<sup\>)(\d+)(?:\<\/sup\>)",
-                r"^\1",
-                leetcode_question_data.content,
-            ),
-            features="html.parser",
-        )
-        data.description = soup.get_text().replace("\r\n", "\n").split("\n")
-        num_of_inputs = len(leetcode_question_data.sampleTestCase.split("\n"))
-        inputs = leetcode_question_data.exampleTestcases.split("\n")
-        data.inputs = [
-            ", ".join(inputs[i : i + num_of_inputs]) for i in range(0, len(inputs), num_of_inputs)
-        ]
-        tmp_description = []
-        example_started = False
-        for idx, line in enumerate(data.description):
-            if re.match(r"\s*Example\s*[0-9]*:", line):
-                example_started = True
-            elif "Output: " in line and example_started:
-                data.outputs.append(line[8:])
-                example_started = False
-            elif line == "Output" and example_started:
-                data.outputs.append(data.description[idx + 1].strip())
-                example_started = False
-            if len(line) > 100:
-                # split on commas or periods, while keeping them
-                split_line = re.split(r"(?<=[\.\,])\s*", line)
-                tmp_line = ""
-                for phrase in split_line:
-                    if not tmp_line or len(tmp_line) + len(phrase) <= 100:
-                        tmp_line += phrase
-                    else:
-                        tmp_description.append(tmp_line)
-                        tmp_line = phrase
-                if tmp_line:
-                    tmp_description.append(tmp_line)
-            else:
-                tmp_description.append(line)
-        data.description = tmp_description
-
-        data.file_path = os.path.join(
-            "src",
-            f"leetcode_{data.id}_" + leetcode_question_data.titleSlug.replace("-", "_"),
-        )
-
-        if code:
-            data.raw_code = code
-
+        data = LeetcodeClient._build_question_data(leetcode_question_data, language, code)
         return data, True
-
-    def scrap_question_data(self, question_name: str) -> Optional[LeetcodeQuestionData]:
-        """Query a question information
-
-        Args:
-            question_name (str): the question slug (which is inside the leetcode url)
-
-        Returns:
-            Optional[LeetcodeQuestionData]: the question information
-        """
-        url: str = "https://leetcode.com/graphql"
-
-        payload: str = json.dumps(
-            {
-                "operationName": "questionData",
-                "variables": {"titleSlug": question_name},
-                "query": "query questionData($titleSlug: String) {\n  question(titleSlug: $titleSlug) {\
-                    \n    questionId\
-                    \n    questionFrontendId\
-                    \n    title\
-                    \n    titleSlug\
-                    \n    content\
-                    \n    isPaidOnly\
-                    \n    difficulty\
-                    \n    likes\
-                    \n    dislikes\
-                    \n    exampleTestcases\
-                    \n    topicTags {\
-                    \n      name\
-                    \n      slug\
-                    \n      translatedName\
-                    \n      __typename\
-                    \n    }\
-                    \n    codeSnippets {\
-                    \n      lang\
-                    \n      langSlug\
-                    \n      code\
-                    \n      __typename\
-                    \n    }\
-                    \n    stats\
-                    \n    hints\
-                    \n    solution {\
-                    \n      id\
-                    \n      canSeeDetail\
-                    \n      paidOnly\
-                    \n      hasVideoSolution\
-                    \n      paidOnlyVideo\
-                    \n      __typename\
-                    \n    }\
-                    \n    status\
-                    \n    sampleTestCase\
-                    \n    metaData\
-                    \n    __typename\n  }\n}\n",
-            }
-        )
-
-        response: Response = self._make_request("POST", url, payload)
-        question_data = json.loads(response.text)
-        if "data" not in question_data or "question" not in question_data["data"]:
-            return None
-        return LeetcodeQuestionData(**question_data["data"]["question"])
 
     def get_latest_submission(self, qid: str, language: str) -> str:
         """Get the latest submission for a question
@@ -321,9 +143,262 @@ class LeetcodeClient:
             click.secho(f"Timed out after {tries} tries. Check url: {url}")
             return
         try:
+            # for tests leetcode return an empty list instead of a string
+            if is_test:
+                raw_result.pop("code_output", "")
             submission_result = LeetcodeSubmissionResult(**raw_result)
         except ValidationError as e:
             raise ValueError("Failed to validate response data.") from e
+
+        LeetcodeClient._process_submission_result(submission_result, is_test)
+
+    def get_submission_list(self, last_key: str = "", offset: int = 0) -> Dict[str, Any]:
+        """Get a list with 20 submissions
+
+        Args:
+            last_key (str, optional): the key of the last query. Defaults to "".
+            offset (int, optional): the offset (used to query older values). Defaults to 0.
+
+        Returns:
+            Dict[str, Any]: the query response
+        """
+        url: str = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey={last_key}"
+
+        payload: str = ""
+
+        response: Response = self._make_request("GET", url, payload)
+
+        return json.loads(response.text)
+
+    def get_id_title_map(self) -> IdTitleMap:
+        """Get a dictionary that maps the id to the question title slug
+
+        Returns:
+            IdTitleMap: maps the id to the title slug
+        """
+        url: str = "https://leetcode.com/api/problems/all/"
+
+        payload: str = ""
+
+        response: Response = self._make_request("GET", url, payload)
+
+        id_title_map: IdTitleMap = IdTitleMap()
+        raw_data = json.loads(response.text)
+        try:
+            all_problems = LeetcodeAllProblems(**raw_data)
+        except ValidationError as e:
+            raise ValueError("Failed to parse question data.") from e
+        for stat in all_problems.stat_status_pairs:
+            id_title_map.id_to_title[
+                int(stat.stat.frontend_question_id)
+            ] = stat.stat.question__title_slug
+            id_title_map.title_to_id[stat.stat.question__title_slug] = int(
+                stat.stat.frontend_question_id
+            )
+
+        return id_title_map
+
+    def _scrap_question_data(self, question_name: str) -> Optional[LeetcodeQuestionData]:
+        """Query a question information
+
+        Args:
+            question_name (str): the question slug (which is inside the leetcode url)
+
+        Returns:
+            Optional[LeetcodeQuestionData]: the question information
+        """
+        url: str = "https://leetcode.com/graphql"
+
+        payload: str = json.dumps(
+            {
+                "operationName": "questionData",
+                "variables": {"titleSlug": question_name},
+                "query": "query questionData($titleSlug: String) {\n  question(titleSlug: $titleSlug) {\
+                    \n    questionId\
+                    \n    questionFrontendId\
+                    \n    title\
+                    \n    titleSlug\
+                    \n    content\
+                    \n    isPaidOnly\
+                    \n    difficulty\
+                    \n    likes\
+                    \n    dislikes\
+                    \n    exampleTestcases\
+                    \n    topicTags {\
+                    \n      name\
+                    \n      slug\
+                    \n      translatedName\
+                    \n      __typename\
+                    \n    }\
+                    \n    codeSnippets {\
+                    \n      lang\
+                    \n      langSlug\
+                    \n      code\
+                    \n      __typename\
+                    \n    }\
+                    \n    stats\
+                    \n    hints\
+                    \n    solution {\
+                    \n      id\
+                    \n      canSeeDetail\
+                    \n      paidOnly\
+                    \n      hasVideoSolution\
+                    \n      paidOnlyVideo\
+                    \n      __typename\
+                    \n    }\
+                    \n    status\
+                    \n    sampleTestCase\
+                    \n    metaData\
+                    \n    __typename\n  }\n}\n",
+            }
+        )
+
+        response: Response = self._make_request("POST", url, payload)
+        question_data = json.loads(response.text)
+        if "data" not in question_data or "question" not in question_data["data"]:
+            return None
+        return LeetcodeQuestionData(**question_data["data"]["question"])
+
+    def _get_headers(self) -> Dict[str, str]:
+        """Return the headers needed to call leetcode api
+
+        Returns:
+            Dict[str, str]: the call headers
+        """
+        headers = {
+            "authority": "leetcode.com",
+            "pragma": "no-cache",
+            "cache-control": "no-cache",
+            "dnt": "1",
+            "sec-ch-ua-mobile": "?0",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "referer": "https://leetcode.com",
+            "origin": "https://leetcode.com",
+            "x-csrftoken": self.csrftoken,
+            "cookie": self.cookies,
+        }
+
+        return headers
+
+    def _make_request(self, method: str, url: str, payload: str) -> Response:
+        """Makes a request
+
+        Args:
+            method (str): Either GET or POST
+            url (str): the request url
+            payload (str): the request payload
+
+        Returns:
+            Response: the request response
+        """
+        return requests.request(method, url, headers=self._get_headers(), data=payload)
+
+    @staticmethod
+    def _get_cookies() -> Tuple[str, str]:
+        """Get the cookies from the browser
+
+        Returns:
+            Tuple[str, str]: the raw cookies and the csrftoken
+        """
+        url: str = "https://leetcode.com/profile/"
+        client = requests.session()
+        browsers = (browser_cookie3.chrome, browser_cookie3.firefox)
+
+        for browser in browsers:
+            try:
+                r = client.get(url, cookies=browser())
+                cookies = r.request.headers["Cookie"]
+                csrftoken = client.cookies["csrftoken"]
+            except browser_cookie3.BrowserCookieError as e:
+                click.secho(e.args, fg="red")
+            if csrftoken:
+                break
+
+        return cookies, csrftoken
+
+    @staticmethod
+    def _build_question_data(
+        leetcode_question_data: LeetcodeQuestionData, language: str, code: Optional[str] = ""
+    ) -> QuestionData:
+        """Converts the response from leetcode to QuestionData object
+
+        Args:
+            leetcode_question_data (LeetcodeQuestionData): the leetcode response data
+
+        Returns:
+            QuestionData: the formated question data
+        """
+        data = QuestionData(id=leetcode_question_data.questionFrontendId, creation_time=time.time())
+        data.internal_id = int(leetcode_question_data.questionId)
+        data.title = leetcode_question_data.title
+        data.title_slug = leetcode_question_data.titleSlug
+        data.url = "https://leetcode.com/problems/" + leetcode_question_data.titleSlug
+        data.difficulty = leetcode_question_data.difficulty
+        data.question_template = next(
+            code.code for code in leetcode_question_data.codeSnippets if code.langSlug == language
+        )
+        data.categories = leetcode_question_data.topicTags
+
+        # fix #24. 10<sup>5</sup> becomes 10^5
+        soup = BeautifulSoup(
+            re.sub(
+                r"(?:\<sup\>)(\d+)(?:\<\/sup\>)",
+                r"^\1",
+                leetcode_question_data.content,
+            ),
+            features="html.parser",
+        )
+        data.description = soup.get_text().replace("\r\n", "\n").split("\n")
+        num_of_inputs = len(leetcode_question_data.sampleTestCase.split("\n"))
+        inputs = leetcode_question_data.exampleTestcases.split("\n")
+        data.inputs = [
+            ", ".join(inputs[i : i + num_of_inputs]) for i in range(0, len(inputs), num_of_inputs)
+        ]
+        tmp_description = []
+        example_started = False
+        for idx, line in enumerate(data.description):
+            if re.match(r"\s*Example\s*[0-9]*:", line):
+                example_started = True
+            elif "Output: " in line and example_started:
+                data.outputs.append(line[8:])
+                example_started = False
+            elif line == "Output" and example_started:
+                data.outputs.append(data.description[idx + 1].strip())
+                example_started = False
+            if len(line) > 100:
+                # split on commas or periods, while keeping them
+                split_line = re.split(r"(?<=[\.\,])\s*", line)
+                tmp_line = ""
+                for phrase in split_line:
+                    if not tmp_line or len(tmp_line) + len(phrase) <= 100:
+                        tmp_line += phrase
+                    else:
+                        tmp_description.append(tmp_line)
+                        tmp_line = phrase
+                if tmp_line:
+                    tmp_description.append(tmp_line)
+            else:
+                tmp_description.append(line)
+        data.description = tmp_description
+
+        data.file_path = os.path.join(
+            "src",
+            f"leetcode_{data.id}_" + leetcode_question_data.titleSlug.replace("-", "_"),
+        )
+
+        if code:
+            data.raw_code = code
+
+        return data
+
+    @staticmethod
+    def _process_submission_result(submission_result: LeetcodeSubmissionResult, is_test: bool):
+        """Print submission result to terminal
+
+        Args:
+            submission_result (LeetcodeSubmissionResult): the submission result
+        """
 
         click.clear()
         click.secho(f"Result: {submission_result.status_msg}")
@@ -358,48 +433,6 @@ class LeetcodeClient:
         # 12: return 'Memory Limit Exceeded';
         # 13: return 'Output Limit Exceeded';
         # 21: return 'Unknown Error';
-
-    def get_submission_list(self, last_key: str = "", offset: int = 0) -> Dict[str, Any]:
-        """Get a list with 20 submissions
-
-        Args:
-            last_key (str, optional): the key of the last query. Defaults to "".
-            offset (int, optional): the offset (used to query older values). Defaults to 0.
-
-        Returns:
-            Dict[str, Any]: the query response
-        """
-        url: str = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey={last_key}"
-
-        payload: str = ""
-
-        response: Response = self._make_request("GET", url, payload)
-
-        return json.loads(response.text)
-
-    def get_id_title_map(self) -> IdTitleMap:
-        """Get a dictionary that maps the id to the question title slug
-
-        Returns:
-            IdTitleMap: maps the id to the title slug
-        """
-        url: str = "https://leetcode.com/api/problems/all/"
-
-        payload: str = ""
-
-        response: Response = self._make_request("GET", url, payload)
-
-        id_title_map: IdTitleMap = IdTitleMap()
-        for stat in json.loads(response.text)["stat_status_pairs"]:
-            if "frontend_question_id" in stat["stat"] and "question__title_slug" in stat["stat"]:
-                id_title_map.id_to_title[int(stat["stat"]["frontend_question_id"])] = stat["stat"][
-                    "question__title_slug"
-                ]
-                id_title_map.title_to_id[stat["stat"]["question__title_slug"]] = int(
-                    stat["stat"]["frontend_question_id"]
-                )
-
-        return id_title_map
 
 
 if __name__ == "__main__":
