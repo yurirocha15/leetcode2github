@@ -6,7 +6,7 @@ Authors:
 from enum import Enum, IntEnum
 from typing import List, Optional
 
-from pydantic.dataclasses import dataclass
+from pydantic import BaseModel
 
 
 class Difficulty(str, Enum):
@@ -30,8 +30,7 @@ class SubmissionStatusCodes(IntEnum):
     UNKNOWN_ERROR = 21
 
 
-@dataclass
-class CodeSnippet:
+class CodeSnippet(BaseModel):
     """Code snippet data"""
 
     lang: str
@@ -39,16 +38,14 @@ class CodeSnippet:
     code: str
 
 
-@dataclass
-class TopicTags:
+class TopicTags(BaseModel):
     """Topic tags data"""
 
     name: str
     slug: str
 
 
-@dataclass
-class LeetcodeQuestionData:
+class LeetcodeQuestionData(BaseModel):
     """Leetcode question data"""
 
     questionId: str
@@ -64,8 +61,7 @@ class LeetcodeQuestionData:
     exampleTestcases: str
 
 
-@dataclass
-class LeetcodeSubmissionResult:
+class LeetcodeSubmissionResult(BaseModel):
     """Leetcode submission result"""
 
     state: str

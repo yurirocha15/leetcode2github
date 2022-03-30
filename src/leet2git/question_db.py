@@ -57,6 +57,12 @@ class QuestionDB:
         if os.path.isfile(self.db_file):
             with open(self.db_file, "rb") as f:
                 self.question_data_dict = pickle.load(f)
+        # support versions <= 0.2.1
+        for k, q in self.question_data_dict.items():
+            if len(q.categories) > 0 and isinstance(q.categories[0], dict):
+                self.question_data_dict[k].categories = [TopicTags(**c) for c in q.categories]
+            if isinstance(q.difficulty, str):
+                self.question_data_dict[k].difficulty = Difficulty(q.difficulty)
         if os.path.isfile(self.id_title_map_file):
             with open(self.id_title_map_file, "rb") as f:
                 self.id_title_map = pickle.load(f)
