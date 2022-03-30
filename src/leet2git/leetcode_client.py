@@ -18,8 +18,14 @@ from bs4 import BeautifulSoup
 from pydantic import ValidationError
 from requests.models import Response
 
-from leet2git.data_schema import LeetcodeQuestionData
+from leet2git.data_schema import (
+    LeetcodeQuestionData,
+    LeetcodeSubmissionResult,
+    SubmissionStatusCodes,
+)
 from leet2git.question_db import IdTitleMap, QuestionData
+
+_TIMEOUT_TRIES_ = 20
 
 
 class LeetcodeClient:
@@ -302,46 +308,56 @@ class LeetcodeClient:
 
         payload = ""
         status: str = ""
-        while status != "SUCCESS":
+        tries = 0
+        while status != "SUCCESS" and tries < _TIMEOUT_TRIES_:
             response = self._make_request("GET", url, payload)
-            submission_result: Dict[str, Any] = json.loads(response.text)
-            status = submission_result["state"]
+            raw_result: Dict[str, Any] = json.loads(response.text)
+            if "state" in raw_result:
+                status = raw_result["state"]
+            tries += 1
             time.sleep(1)
 
+        if tries >= _TIMEOUT_TRIES_:
+            click.secho(f"Timed out after {tries} tries. Check url: {url}")
+            return
+        try:
+            submission_result = LeetcodeSubmissionResult(**raw_result)
+        except ValidationError as e:
+            raise ValueError("Failed to validate response data.") from e
+
         click.clear()
-        click.secho(f'Result: {submission_result["status_msg"]}')
+        click.secho(f"Result: {submission_result.status_msg}")
         # success
-        if submission_result["status_code"] == 10:
+        if submission_result.status_code == SubmissionStatusCodes.SUCCESS:
             click.secho(
-                f'Total Runtime: {submission_result["status_runtime"]} '
-                + ("" if is_test else f'(Better than {submission_result["runtime_percentile"]:.2f}%)')
+                f"Total Runtime: {submission_result.status_runtime} "
+                + ("" if is_test else f"(Better than {submission_result.runtime_percentile:.2f}%)")
             )
             click.secho(
-                f'Total Memory: {submission_result["status_memory"]} '
-                + ("" if is_test else f'(Better than {submission_result["memory_percentile"]:.2f}%)')
+                f"Total Memory: {submission_result.status_memory} "
+                + ("" if is_test else f"(Better than {submission_result.memory_percentile:.2f}%)")
             )
         # Wrong Answer
-        elif submission_result["status_code"] == 11:
-            click.secho(f'Last Input: {submission_result["input_formatted"]}')
-            click.secho(f'Expected Output: {submission_result["expected_output"]}')
-            click.secho(f'Code Output: {submission_result["code_output"]}')
+        elif submission_result.status_code == SubmissionStatusCodes.WRONG_ANSWER:
+            click.secho(f"Last Input: {submission_result.input_formatted}")
+            click.secho(f"Expected Output: {submission_result.expected_output}")
+            click.secho(f"Code Output: {submission_result.code_output}")
         # Time Limit Exceeded
-        elif submission_result["status_code"] == 14:
+        elif submission_result.status_code == SubmissionStatusCodes.TIME_LIMIT_EXCEEDED:
             nl = "\n"
-            click.secho(f'Last Input: {submission_result["last_testcase"].replace(nl, " ")}')
-            click.secho(f'Expected Output: {submission_result["expected_output"]}')
-            click.secho(f'Code Output: {submission_result["code_output"]}')
+            click.secho(f'Last Input: {submission_result.last_testcase.replace(nl, " ")}')
+            click.secho(f"Expected Output: {submission_result.expected_output}")
+            click.secho(f"Code Output: {submission_result.code_output}")
         # Runtime Error
-        elif submission_result["status_code"] == 15:
-            click.secho(f'Runtime Error: {submission_result["runtime_error"]}')
+        elif submission_result.status_code == SubmissionStatusCodes.RUNTIME_ERROR:
+            click.secho(f"Runtime Error: {submission_result.runtime_error}")
         # Compile Error
-        elif submission_result["status_code"] == 20:
-            click.secho(f'Compile Error: {submission_result["compile_error"]}')
+        elif submission_result.status_code == SubmissionStatusCodes.COMPILE_ERROR:
+            click.secho(f"Compile Error: {submission_result.compile_error}")
         # TODO: MISSING CASES
         # 12: return 'Memory Limit Exceeded';
         # 13: return 'Output Limit Exceeded';
-        # 15: return 'Runtime Error';
-        # 20: return 'Compile Error';
+        # 21: return 'Unknown Error';
 
     def get_submission_list(self, last_key: str = "", offset: int = 0) -> Dict[str, Any]:
         """Get a list with 20 submissions
