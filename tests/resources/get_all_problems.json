@@ -1,0 +1,193 @@
+{
+    "user_name": "",
+    "num_solved": 0,
+    "num_total": 2218,
+    "ac_easy": 0,
+    "ac_medium": 0,
+    "ac_hard": 0,
+    "stat_status_pairs": [
+        {
+            "stat": {
+                "question_id": 2354,
+                "question__article__live": null,
+                "question__article__slug": null,
+                "question__article__has_video_solution": null,
+                "question__title": "Minimum Health to Beat Game",
+                "question__title_slug": "minimum-health-to-beat-game",
+                "question__hide": false,
+                "total_acs": 509,
+                "total_submitted": 805,
+                "frontend_question_id": 2214,
+                "is_new_question": true
+            },
+            "status": null,
+            "difficulty": {
+                "level": 2
+            },
+            "paid_only": true,
+            "is_favor": false,
+            "frequency": 0,
+            "progress": 0
+        },
+        {
+            "stat": {
+                "question_id": 2336,
+                "question__article__live": null,
+                "question__article__slug": null,
+                "question__article__has_video_solution": null,
+                "question__title": "The Number of Users\u000aThat Are Eligible for Discount",
+                "question__title_slug": "the-number-of-users-that-are-eligible-for-discount",
+                "question__hide": false,
+                "total_acs": 423,
+                "total_submitted": 850,
+                "frontend_question_id": 2205,
+                "is_new_question": false
+            },
+            "status": null,
+            "difficulty": {
+                "level": 1
+            },
+            "paid_only": true,
+            "is_favor": false,
+            "frequency": 0,
+            "progress": 0
+        },
+        {
+            "stat": {
+                "question_id": 2335,
+                "question__article__live": null,
+                "question__article__slug": null,
+                "question__article__has_video_solution": null,
+                "question__title": "Finding the Topic of Each Post",
+                "question__title_slug": "finding-the-topic-of-each-post",
+                "question__hide": false,
+                "total_acs": 232,
+                "total_submitted": 661,
+                "frontend_question_id": 2199,
+                "is_new_question": false
+            },
+            "status": null,
+            "difficulty": {
+                "level": 3
+            },
+            "paid_only": true,
+            "is_favor": false,
+            "frequency": 0,
+            "progress": 0
+        },
+        {
+            "stat": {
+                "question_id": 2322,
+                "question__article__live": null,
+                "question__article__slug": null,
+                "question__article__has_video_solution": null,
+                "question__title": "Number of Ways to\u000aBuild Sturdy Brick Wall",
+                "question__title_slug": "number-of-ways-to-build-sturdy-brick-wall",
+                "question__hide": false,
+                "total_acs": 698,
+                "total_submitted": 1185,
+                "frontend_question_id": 2184,
+                "is_new_question": false
+            },
+            "status": null,
+            "difficulty": {
+                "level": 2
+            },
+            "paid_only": true,
+            "is_favor": false,
+            "frequency": 0,
+            "progress": 0
+        }, {
+            "stat": {
+                "question_id": 2321,
+                "question__article__live": null,
+                "question__article__slug": null,
+                "question__article__has_video_solution": null,
+                "question__title": "Minimum Weighted Subgraph With the Required Paths",
+                "question__title_slug": "minimum-weighted-subgraph-with-the-required-paths",
+                "question__hide": false,
+                "total_acs": 5424,
+                "total_submitted": 15540,
+                "frontend_question_id": 2203,
+                "is_new_question": false
+            },
+            "status": null,
+            "difficulty": {
+                "level": 3
+            },
+            "paid_only": false,
+            "is_favor": false,
+            "frequency": 0,
+            "progress": 0
+        }, {
+            "stat": {
+                "question_id": 2320,
+                "question__article__live": null,
+                "question__article__slug": null,
+                "question__article__has_video_solution": null,
+                "question__title": "Find All K-Distant Indices in an Array",
+                "question__title_slug": "find-all-k-distant-indices-in-an-array",
+                "question__hide": false,
+                "total_acs": 19658,
+                "total_submitted": 30412,
+                "frontend_question_id": 2200,
+                "is_new_question": false
+            },
+            "status": null,
+            "difficulty": {
+                "level": 1
+            },
+            "paid_only": false,
+            "is_favor": false,
+            "frequency": 0,
+            "progress": 0
+        }, {
+            "stat": {
+                "question_id": 2319,
+                "question__article__live": null,
+                "question__article__slug": null,
+                "question__article__has_video_solution": null,
+                "question__title": "Longest Substring of\u000aOne Repeating Character",
+                "question__title_slug": "longest-substring-of-one-repeating-character",
+                "question__hide": false,
+                "total_acs": 1614,
+                "total_submitted": 5890,
+                "frontend_question_id": 2213,
+                "is_new_question": false
+            },
+            "status": null,
+            "difficulty": {
+                "level": 3
+            },
+            "paid_only": false,
+            "is_favor": false,
+            "frequency": 0,
+            "progress": 0
+        }, {
+            "stat": {
+                "question_id": 2318,
+                "question__article__live": null,
+                "question__article__slug": null,
+                "question__article__has_video_solution": null,
+                "question__title": "Maximum Points in an Archery Competition",
+                "question__title_slug": "maximum-points-in-an-archery-competition",
+                "question__hide": false,
+                "total_acs": 7588,
+                "total_submitted": 16266,
+                "frontend_question_id": 2212,
+                "is_new_question": false
+            },
+            "status": null,
+            "difficulty": {
+                "level": 2
+            },
+            "paid_only": false,
+            "is_favor": false,
+            "frequency": 0,
+            "progress": 0
+        }
+    ],
+    "frequency_high": 0,
+    "frequency_mid": 0,
+    "category_slug": "all"
+}

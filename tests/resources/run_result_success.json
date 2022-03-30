@@ -1,0 +1,34 @@
+{
+    "status_code": 10,
+    "lang": "python3",
+    "run_success": true,
+    "status_runtime": "44 ms",
+    "memory": 13928000,
+    "code_answer": [
+        "[1,0]"
+    ],
+    "code_output": [],
+    "elapsed_time": 128,
+    "task_finish_time": 1648640237504,
+    "expected_status_code": 10,
+    "expected_lang": "cpp",
+    "expected_run_success": true,
+    "expected_status_runtime": "0",
+    "expected_memory": 6252000,
+    "expected_code_answer": [
+        "[0,1]"
+    ],
+    "expected_code_output": [],
+    "expected_elapsed_time": 13,
+    "expected_task_finish_time": 1648639847206,
+    "correct_answer": true,
+    "total_correct": null,
+    "total_testcases": null,
+    "runtime_percentile": null,
+    "status_memory": "13.9 MB",
+    "memory_percentile": null,
+    "pretty_lang": "Python3",
+    "submission_id": "runcode_1648640235.2750149_GC0oJRR0sP",
+    "status_msg": "Accepted",
+    "state": "SUCCESS"
+}
