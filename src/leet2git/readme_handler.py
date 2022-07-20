@@ -82,9 +82,9 @@ class ReadmeHandler:
             categories_str = categories_str[:-2]
             if not question.difficulty:
                 question.difficulty = "Easy"
-            difficulty_tables[question.difficulty].values.append(
+            difficulty_tables[question.difficulty.value].values.append(
                 [
-                    str(len(difficulty_tables[question.difficulty].values) + 1),
+                    str(len(difficulty_tables[question.difficulty.value].values) + 1),
                     f"[{question.title}]({question.file_path})",
                     f"[{question.id}]({question.url})",
                     categories_str,
