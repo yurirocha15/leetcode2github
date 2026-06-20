@@ -62,12 +62,6 @@ class QuestionDataResponse(BaseModel):
     data: QuestionDataBody
 
 
-class LatestSubmissionResponse(BaseModel):
-    """Latest submission response."""
-
-    code: str
-
-
 class SubmissionRow(BaseModel):
     """Submission row returned by the submissions list endpoint."""
 

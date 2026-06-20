@@ -99,15 +99,6 @@ async def main() -> None:
         },
     )
 
-    latest_submission = await client.async_get_latest_submission("1", "python3")
-    print_mapping(
-        "latest_submission",
-        {
-            "code_present": bool(latest_submission),
-            "code_length": len(latest_submission),
-        },
-    )
-
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -335,7 +335,7 @@ class PythonHandler(FileHandler):
             return
         try:
             subprocess.run(
-                ["ruff", "check", "--fix", file_path],
+                ["ruff", "check", "--fix", "--select", "I,UP,F401", file_path],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=True,

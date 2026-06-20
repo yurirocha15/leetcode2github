@@ -22,6 +22,27 @@ def test_app_config_defaults_are_validated():
     assert config.test_code.generate_tests is True
 
 
+def test_initial_config_creation_does_not_open_editor(tmp_path, monkeypatch):
+    def fail_edit(**kwargs):
+        raise AssertionError("click.edit should not be called")
+
+    class FakePlatformDirs:
+        user_config_dir = str(tmp_path / "config")
+        user_data_dir = str(tmp_path / "data")
+
+        def __init__(self, appname, appauthor):
+            self.appname = appname
+            self.appauthor = appauthor
+
+    monkeypatch.setattr("leet2git.config_manager.PlatformDirs", FakePlatformDirs)
+    monkeypatch.setattr("leet2git.config_manager.click.edit", fail_edit)
+
+    manager = ConfigManager()
+
+    assert manager.config.source_path == ""
+    assert (tmp_path / "config" / "config.json").exists()
+
+
 def test_load_config_validates_json_and_applies_overrides(tmp_path):
     manager = make_config_manager(tmp_path)
     with open(manager._config_file, "w", encoding="UTF8") as file:

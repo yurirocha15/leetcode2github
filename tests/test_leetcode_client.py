@@ -4,9 +4,13 @@ from http.cookiejar import Cookie, CookieJar
 
 import httpx
 import pytest
+from pydantic import BaseModel
 
 from leet2git.leetcode_client import LeetcodeAPIError, LeetcodeAuthError, LeetcodeClient
-from leet2git.leetcode_models import LatestSubmissionResponse
+
+
+class DummyResponse(BaseModel):
+    ok: bool
 
 
 def cookie(name: str, value: str, domain: str) -> Cookie:
@@ -258,32 +262,14 @@ def test_request_json_wraps_http_errors():
     client = make_client(lambda _: httpx.Response(403, json={"error": "forbidden"}))
 
     with pytest.raises(LeetcodeAPIError, match="HTTP 403"):
-        asyncio.run(
-            client._request_json("GET", "https://leetcode.com/api/private", LatestSubmissionResponse)
-        )
+        asyncio.run(client._request_json("GET", "https://leetcode.com/api/private", DummyResponse))
 
 
 def test_request_json_rejects_non_json_response():
     client = make_client(lambda _: httpx.Response(200, text="<html></html>"))
 
     with pytest.raises(LeetcodeAPIError, match="non-JSON"):
-        asyncio.run(
-            client._request_json("GET", "https://leetcode.com/api/private", LatestSubmissionResponse)
-        )
-
-
-def test_latest_submission_requires_code_field():
-    client = make_client(lambda _: httpx.Response(200, json={}))
-
-    with pytest.raises(LeetcodeAPIError, match="code"):
-        asyncio.run(client.async_get_latest_submission("1", "python3"))
-
-
-def test_get_latest_submission_propagates_api_errors():
-    client = make_client(lambda _: httpx.Response(200, json={}))
-
-    with pytest.raises(LeetcodeAPIError, match="code"):
-        client.get_latest_submission("1", "python3")
+        asyncio.run(client._request_json("GET", "https://leetcode.com/api/private", DummyResponse))
 
 
 def test_sync_wrapper_closes_coroutines_inside_running_event_loop():
@@ -311,6 +297,33 @@ def test_submission_list_requires_expected_shape():
 
     with pytest.raises(LeetcodeAPIError, match="has_next"):
         asyncio.run(client.async_get_submission_list())
+
+
+def test_submission_list_retries_transient_403(monkeypatch):
+    calls = 0
+    sleeps = []
+
+    async def fake_sleep(delay):
+        sleeps.append(delay)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(403, text="<html>Just a moment...</html>")
+        return httpx.Response(
+            200,
+            json={"submissions_dump": [], "has_next": False, "last_key": ""},
+        )
+
+    monkeypatch.setattr("leet2git.leetcode_client.asyncio.sleep", fake_sleep)
+    client = make_client(handler)
+
+    response = asyncio.run(client.async_get_submission_list())
+
+    assert response.has_next is False
+    assert calls == 2
+    assert sleeps == [5]
 
 
 def test_get_question_data_validates_question_payload():

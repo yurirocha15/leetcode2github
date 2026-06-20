@@ -71,7 +71,7 @@ class ConfigManager:
         os.makedirs(self._config_path, exist_ok=True)
         os.makedirs(self._legacy_data_path, exist_ok=True)
         if not os.path.isfile(self._config_file):
-            self.reset_config("")
+            self.reset_config("", edit=False)
 
     @property
     def config(self) -> AppConfig:
@@ -102,7 +102,7 @@ class ConfigManager:
             }
         )
 
-    def reset_config(self, repo_path: str, language: str = "python3"):
+    def reset_config(self, repo_path: str, language: str = "python3", edit: bool = True):
         """Resets the config and open it on the default editor
 
         Args:
@@ -121,8 +121,11 @@ class ConfigManager:
                 indent=4,
             )
 
-        click.edit(filename=self._config_file, extension=".json")
-        click.secho(f"You can also edit the configuration manually. File Location: {self._config_file}")
+        if edit:
+            click.edit(filename=self._config_file, extension=".json")
+            click.secho(
+                f"You can also edit the configuration manually. File Location: {self._config_file}"
+            )
 
 
 if __name__ == "__main__":

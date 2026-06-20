@@ -109,6 +109,6 @@ def test_run_formatter_invokes_ruff_without_shell(monkeypatch):
 
     handler.run_formatter("solution.py")
 
-    assert calls[0][0] == ["ruff", "check", "--fix", "solution.py"]
+    assert calls[0][0] == ["ruff", "check", "--fix", "--select", "I,UP,F401", "solution.py"]
     assert calls[1][0] == ["ruff", "format", "solution.py"]
     assert all("shell" not in kwargs for _, kwargs in calls)

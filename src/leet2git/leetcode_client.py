@@ -21,7 +21,6 @@ from pydantic import BaseModel, ValidationError
 
 from leet2git.leetcode_models import (
     InterpretSolutionResponse,
-    LatestSubmissionResponse,
     ProblemListResponse,
     QuestionDataRequest,
     QuestionDataResponse,
@@ -243,25 +242,6 @@ class LeetcodeClient:
 
         return await self._request_json("POST", url, QuestionDataResponse, json_body=payload)
 
-    def get_latest_submission(self, qid: str, language: str) -> str:
-        """Get the latest submission for a question
-
-        Args:
-            qid (str): the question id
-            cookies (str): leetcode cookies
-            language (str): the code language
-
-        Returns:
-            str: the submitted code
-        """
-        return self._run_async(self.async_get_latest_submission(qid, language))
-
-    async def async_get_latest_submission(self, qid: str, language: str) -> str:
-        """Get the latest submission for a question asynchronously."""
-        url: str = f"https://leetcode.com/submissions/latest/?qid={qid}&lang={language}"
-        response = await self._request_json("GET", url, LatestSubmissionResponse)
-        return response.code
-
     def submit_question(
         self,
         code: str,
@@ -385,7 +365,15 @@ class LeetcodeClient:
         """
         url: str = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey={last_key}"
 
-        return await self._request_json("GET", url, SubmissionListResponse)
+        for attempt in range(3):
+            try:
+                return await self._request_json("GET", url, SubmissionListResponse)
+            except LeetcodeAPIError as e:
+                if "HTTP 403" not in str(e) or attempt == 2:
+                    raise
+                await asyncio.sleep(5 * (attempt + 1))
+
+        raise LeetcodeAPIError(f"Could not fetch LeetCode submissions page: {url}")
 
     def get_id_title_map(self) -> IdTitleMap:
         """Get id/title mappings using the async HTTP implementation."""

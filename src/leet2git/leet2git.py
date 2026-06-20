@@ -226,6 +226,8 @@ def import_all(cm: ConfigManager):
             last_key = submissions.last_key
             offset += 20
             qdb.save()
+            if has_next:
+                time.sleep(1)
     except KeyboardInterrupt:
         click.secho("Stopping the process...")
         imported_cnt += wait_to_finish_download(jobs, ret_dict, qdb)
