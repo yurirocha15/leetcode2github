@@ -31,7 +31,7 @@
 - `leet2git.py`: Click command entry points and command orchestration.
 - `config_manager.py`: user config file creation and loading.
 - `leetcode_client.py`: LeetCode HTTP/session interactions.
-- `question_db.py`: local question metadata storage.
+- `question_db.py`: Pydantic question metadata models and local pickle-backed storage.
 - `file_handler.py`, `default_handler.py`, `python_handler.py`: file generation and language-specific behavior.
 - `readme_handler.py`: generated README updates for target solution repositories.
 - `my_utils.py`: shared helpers used by commands.
@@ -42,6 +42,7 @@
 - Mock network calls, browser cookie access, editor launches, and LeetCode responses.
 - Use temporary directories for generated repositories, config files, question databases, and README output.
 - When changing CLI behavior, test with Click's testing utilities where practical.
+- Preserve compatibility with existing pickle-backed question databases when changing `QuestionData`, `IdTitleMap`, or `QuestionDB.load`.
 
 ## Safety Notes
 

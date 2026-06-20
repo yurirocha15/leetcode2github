@@ -7,13 +7,15 @@ Authors:
 import operator
 import os
 import pickle
-from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict, Field
 
-@dataclass
-class QuestionData:
+
+class QuestionData(BaseModel):
     """Stores all the data related to a question"""
+
+    model_config = ConfigDict(validate_assignment=True)
 
     title: str = ""
     title_slug: str = ""
@@ -23,23 +25,48 @@ class QuestionData:
     creation_time: float = 0.0
     difficulty: str = ""
     file_path: str = ""
-    test_file_path = ""
+    test_file_path: str = ""
     question_template: str = ""
     raw_code: str = ""
     language: str = ""
-    function_name: list[str] = field(default_factory=list)
-    description: list[str] = field(default_factory=list)
-    inputs: list[str] = field(default_factory=list)
-    outputs: list[str] = field(default_factory=list)
-    categories: list[dict[str, str]] = field(default_factory=list)
+    function_name: list[str] = Field(default_factory=list)
+    description: list[str] = Field(default_factory=list)
+    inputs: list[str] = Field(default_factory=list)
+    outputs: list[str] = Field(default_factory=list)
+    categories: list[dict[str, Any]] = Field(default_factory=list)
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Support unpickling state written by the former dataclass model."""
+        if "__dict__" in state:
+            super().__setstate__(state)
+            return
+
+        model = type(self).model_validate(state)
+        object.__setattr__(self, "__dict__", model.__dict__)
+        object.__setattr__(self, "__pydantic_fields_set__", set(state))
+        object.__setattr__(self, "__pydantic_extra__", None)
+        object.__setattr__(self, "__pydantic_private__", None)
 
 
-@dataclass
-class IdTitleMap:
+class IdTitleMap(BaseModel):
     """Maps Ids and title slugs"""
 
-    id_to_title: dict[int, str] = field(default_factory=dict)
-    title_to_id: dict[str, int] = field(default_factory=dict)
+    model_config = ConfigDict(validate_assignment=True)
+
+    id_to_title: dict[int, str] = Field(default_factory=dict)
+    title_to_id: dict[str, int] = Field(default_factory=dict)
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Support unpickling state written by the former dataclass model."""
+        if "__dict__" in state:
+            super().__setstate__(state)
+            return
+
+        model = type(self).model_validate(state)
+        object.__setattr__(self, "__dict__", model.__dict__)
+        object.__setattr__(self, "__pydantic_fields_set__", set(state))
+        object.__setattr__(self, "__pydantic_extra__", None)
+        object.__setattr__(self, "__pydantic_private__", None)
 
 
 class QuestionDB:
@@ -55,10 +82,10 @@ class QuestionDB:
         """Load the question data from disk"""
         if os.path.isfile(self.db_file):
             with open(self.db_file, "rb") as f:
-                self.question_data_dict = pickle.load(f)
+                self.question_data_dict = self._load_question_data(pickle.load(f))
         if os.path.isfile(self.id_title_map_file):
             with open(self.id_title_map_file, "rb") as f:
-                self.id_title_map = pickle.load(f)
+                self.id_title_map = self._load_id_title_map(pickle.load(f))
 
     def save(self):
         """Save the question data to disk"""
@@ -190,3 +217,23 @@ class QuestionDB:
         self.question_data_dict: dict[int, QuestionData] = {}
         self.id_title_map: IdTitleMap = IdTitleMap()
         self.save()
+
+    def _load_question_data(self, raw_data: Any) -> dict[int, QuestionData]:
+        """Normalize legacy pickle payloads into Pydantic models."""
+        if not isinstance(raw_data, dict):
+            return {}
+
+        return {
+            int(question_id): (
+                question_data
+                if isinstance(question_data, QuestionData)
+                else QuestionData.model_validate(question_data)
+            )
+            for question_id, question_data in raw_data.items()
+        }
+
+    def _load_id_title_map(self, raw_data: Any) -> IdTitleMap:
+        """Normalize legacy pickle payloads into a Pydantic id/title map."""
+        if isinstance(raw_data, IdTitleMap):
+            return raw_data
+        return IdTitleMap.model_validate(raw_data)
