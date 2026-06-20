@@ -4,7 +4,7 @@ from leet2git.config_manager import AppConfig
 from leet2git.leet2git import leet2git
 from leet2git.leetcode_client import LeetcodeAPIError, LeetcodeAuthError
 from leet2git.leetcode_models import SubmissionListResponse
-from leet2git.question_db import QuestionData
+from leet2git.question_db import IdTitleMap, QuestionData
 
 
 class FakeConfigManager:
@@ -48,6 +48,92 @@ def test_get_reports_auth_error_without_traceback(monkeypatch):
     assert "Traceback" not in result.output
 
 
+def test_get_skips_existing_question(monkeypatch):
+    class ExistingQuestionDB(EmptyQuestionDB):
+        def check_if_exists(self, question_id):
+            return True
+
+    monkeypatch.setattr("leet2git.leet2git.ConfigManager", FakeConfigManager)
+    monkeypatch.setattr("leet2git.leet2git.QuestionDB", ExistingQuestionDB)
+
+    result = CliRunner().invoke(leet2git, ["get", "1"])
+
+    assert result.exit_code == 0
+    assert "Question already imported" in result.output
+
+
+def test_get_imports_question_and_updates_readme(monkeypatch, tmp_path):
+    class ConfigManagerWithSource(FakeConfigManager):
+        def __init__(self):
+            self.config = AppConfig(language="python3", source_path=str(tmp_path))
+
+    class ImportOneQuestionDB(EmptyQuestionDB):
+        instances = []
+
+        def __init__(self, config):
+            super().__init__(config)
+            self.questions = {}
+            self.id_title_map = IdTitleMap()
+            self.save_count = 0
+            self.instances.append(self)
+
+        def check_if_exists(self, question_id):
+            return question_id in self.questions
+
+        def check_if_slug_is_known(self, question_id):
+            return question_id in self.id_title_map.id_to_title
+
+        def set_id_title_map(self, id_title_map):
+            self.id_title_map = id_title_map
+
+        def get_title_from_id(self, question_id):
+            return self.id_title_map.id_to_title[question_id]
+
+        def add_question(self, question):
+            self.questions[question.id] = question
+
+        def save(self):
+            self.save_count += 1
+
+        def get_sorted_list(self, sort_by):
+            return sorted(self.questions.values(), key=lambda question: question.creation_time)
+
+    class FakeClient:
+        def get_id_title_map(self):
+            return IdTitleMap(id_to_title={1: "two-sum"}, title_to_id={"two-sum": 1})
+
+    class FakeReadmeHandler:
+        built_lists = []
+
+        def __init__(self, config):
+            self.config = config
+
+        def build_readme(self, question_list):
+            self.built_lists.append(question_list)
+
+    def fake_generate_files(args, question_id, title_slug, lc, timestamp, config, code=""):
+        args[question_id] = QuestionData(
+            id=question_id,
+            title="Two Sum",
+            title_slug=title_slug,
+            creation_time=timestamp,
+        )
+
+    monkeypatch.setattr("leet2git.leet2git.ConfigManager", ConfigManagerWithSource)
+    monkeypatch.setattr("leet2git.leet2git.QuestionDB", ImportOneQuestionDB)
+    monkeypatch.setattr("leet2git.leet2git.LeetcodeClient", FakeClient)
+    monkeypatch.setattr("leet2git.leet2git.ReadmeHandler", FakeReadmeHandler)
+    monkeypatch.setattr("leet2git.leet2git.generate_files", fake_generate_files)
+
+    result = CliRunner().invoke(leet2git, ["get", "1"])
+
+    imported_db = ImportOneQuestionDB.instances[-1]
+    assert result.exit_code == 0
+    assert imported_db.questions[1].title == "Two Sum"
+    assert imported_db.save_count == 2
+    assert [question.id for question in FakeReadmeHandler.built_lists[-1]] == [1]
+
+
 def test_submit_reports_api_error_without_traceback(monkeypatch):
     class SubmitQuestionDB(EmptyQuestionDB):
         def get_question(self, question_id):
@@ -71,6 +157,20 @@ def test_submit_reports_api_error_without_traceback(monkeypatch):
     assert result.exit_code == 0
     assert "api failed" in result.output
     assert "Traceback" not in result.output
+
+
+def test_submit_reports_missing_question(monkeypatch):
+    class SubmitQuestionDB(EmptyQuestionDB):
+        def get_question(self, question_id):
+            return None
+
+    monkeypatch.setattr("leet2git.leet2git.ConfigManager", FakeConfigManager)
+    monkeypatch.setattr("leet2git.leet2git.QuestionDB", SubmitQuestionDB)
+
+    result = CliRunner().invoke(leet2git, ["submit", "1"])
+
+    assert result.exit_code == 0
+    assert "Could not find the question with id 1" in result.output
 
 
 def test_delete_removes_files_from_configured_source_path(monkeypatch, tmp_path):
@@ -126,6 +226,16 @@ def test_delete_removes_files_from_configured_source_path(monkeypatch, tmp_path)
     assert "removed" in result.output
 
 
+def test_delete_reports_missing_question(monkeypatch):
+    monkeypatch.setattr("leet2git.leet2git.ConfigManager", FakeConfigManager)
+    monkeypatch.setattr("leet2git.leet2git.QuestionDB", EmptyQuestionDB)
+
+    result = CliRunner().invoke(leet2git, ["delete", "1"])
+
+    assert result.exit_code == 0
+    assert "could not be found" in result.output
+
+
 def test_run_submits_generated_code_with_question_inputs(monkeypatch, tmp_path):
     class ConfigManagerWithSource(FakeConfigManager):
         def __init__(self):
@@ -170,6 +280,20 @@ def test_run_submits_generated_code_with_question_inputs(monkeypatch, tmp_path):
             "[2,7,11,15]\n9\n[3,2,4]\n6",
         )
     ]
+
+
+def test_run_reports_missing_question(monkeypatch):
+    class RunQuestionDB(EmptyQuestionDB):
+        def get_question(self, question_id):
+            return None
+
+    monkeypatch.setattr("leet2git.leet2git.ConfigManager", FakeConfigManager)
+    monkeypatch.setattr("leet2git.leet2git.QuestionDB", RunQuestionDB)
+
+    result = CliRunner().invoke(leet2git, ["run", "1"])
+
+    assert result.exit_code == 0
+    assert "Could not find the question with id 1" in result.output
 
 
 def test_import_all_filters_pages_and_updates_readme(monkeypatch, tmp_path):
@@ -321,3 +445,103 @@ def test_import_all_filters_pages_and_updates_readme(monkeypatch, tmp_path):
     assert imported_db.questions[2].raw_code == "code two"
     assert imported_db.save_count == 3
     assert [question.id for question in FakeReadmeHandler.built_lists[-1]] == [1, 2]
+
+
+def test_init_can_create_repository(monkeypatch, tmp_path):
+    class InitConfigManager(FakeConfigManager):
+        def __init__(self):
+            self.config = AppConfig(language="python3", source_path=str(tmp_path / "initial"))
+
+        def reset_config(self, source_repository, language):
+            self.config.source_path = source_repository
+            self.config.language = language
+
+    class FakeHandler:
+        generated_repos = []
+
+        def generate_repo(self, source_path):
+            self.generated_repos.append(source_path)
+
+    monkeypatch.setattr("leet2git.leet2git.ConfigManager", InitConfigManager)
+    monkeypatch.setattr("leet2git.leet2git.create_file_handler", lambda *_: FakeHandler())
+
+    result = CliRunner().invoke(
+        leet2git,
+        ["init", "--source-repository", str(tmp_path / "repo"), "--language", "rust", "--create-repo"],
+    )
+
+    assert result.exit_code == 0
+    assert FakeHandler.generated_repos == [str(tmp_path / "repo")]
+
+
+def test_reset_soft_resets_database_after_confirmation(monkeypatch, tmp_path):
+    class ResetConfigManager(FakeConfigManager):
+        def __init__(self):
+            self.config = AppConfig(language="python3", source_path=str(tmp_path))
+
+        def reset_config(self, source_repository, language):
+            self.config.source_path = source_repository
+            self.config.language = language
+
+    class ResetQuestionDB(EmptyQuestionDB):
+        reset_count = 0
+
+        def reset(self):
+            self.__class__.reset_count += 1
+
+    monkeypatch.setattr("leet2git.leet2git.ConfigManager", ResetConfigManager)
+    monkeypatch.setattr("leet2git.leet2git.QuestionDB", ResetQuestionDB)
+
+    result = CliRunner().invoke(
+        leet2git,
+        ["reset", "--soft", "--source-repository", str(tmp_path), "--language", "python3"],
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert ResetQuestionDB.reset_count == 1
+
+
+def test_reset_hard_removes_generated_files_and_regenerates_repo(monkeypatch, tmp_path):
+    source_file = tmp_path / "src" / "leetcode_1_two_sum.py"
+    test_file = tmp_path / "tests" / "test_1.py"
+    source_file.parent.mkdir()
+    test_file.parent.mkdir()
+    source_file.write_text("solution\n", encoding="UTF8")
+    test_file.write_text("test\n", encoding="UTF8")
+
+    class ResetConfigManager(FakeConfigManager):
+        def __init__(self):
+            self.config = AppConfig(language="python3", source_path=str(tmp_path))
+
+        def reset_config(self, source_repository, language):
+            self.config.source_path = source_repository
+            self.config.language = language
+
+    class ResetQuestionDB(EmptyQuestionDB):
+        reset_count = 0
+
+        def reset(self):
+            self.__class__.reset_count += 1
+
+    class FakeHandler:
+        generated_repos = []
+
+        def generate_repo(self, source_path):
+            self.generated_repos.append(source_path)
+
+    monkeypatch.setattr("leet2git.leet2git.ConfigManager", ResetConfigManager)
+    monkeypatch.setattr("leet2git.leet2git.QuestionDB", ResetQuestionDB)
+    monkeypatch.setattr("leet2git.leet2git.create_file_handler", lambda *_: FakeHandler())
+
+    result = CliRunner().invoke(
+        leet2git,
+        ["reset", "--hard", "--source-repository", str(tmp_path), "--language", "python3"],
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert not source_file.exists()
+    assert not test_file.exists()
+    assert ResetQuestionDB.reset_count == 1
+    assert FakeHandler.generated_repos == [str(tmp_path)]
