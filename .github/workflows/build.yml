@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: '0'
-    - uses: astral-sh/setup-uv@v8.1.0
+    - uses: astral-sh/setup-uv@v8.2.0
       with:
         enable-cache: true
     - name: Set up Python
@@ -24,7 +24,7 @@ jobs:
     - name: Install dependencies
       run: uv sync --extra dev --frozen
     - name: Get next version
-      uses: anothrNick/github-tag-action@9885a4f9af674ba472de91fb3c0cb033ecb32b7e
+      uses: anothrNick/github-tag-action@1.75.0
       id: bump_version
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -35,21 +35,21 @@ jobs:
     - name: Update app version
       if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
       run: | 
-        python src/leet2git/version.py ${{ steps.bump_version.outputs.new_tag }}
+        uv run python src/leet2git/version.py ${{ steps.bump_version.outputs.new_tag }}
         git config user.email "yurirocha15@gmail.com"
         git config user.name "Yuri Rocha"
         git add src/leet2git/version.py
         git commit -m "bump version to ${{ steps.bump_version.outputs.new_tag }}"
     - name: Push to protected branch
       if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
-      uses: CasperWA/push-protected@v2
+      uses: CasperWA/push-protected@v2.16.0
       with:
         token: ${{ secrets.PUSH_TO_PROTECTED_BRANCH }}
         branch: main
         unprotect_reviews: true
     - name: Bump version and push tag
       if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
-      uses: anothrNick/github-tag-action@9885a4f9af674ba472de91fb3c0cb033ecb32b7e
+      uses: anothrNick/github-tag-action@1.75.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         DEFAULT_BUMP: none
@@ -60,7 +60,7 @@ jobs:
       run: uv run python -m build
     - name: Publish package
       if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
-      uses: pypa/gh-action-pypi-publish@release/v1
+      uses: pypa/gh-action-pypi-publish@v1.14.0
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
