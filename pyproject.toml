@@ -24,13 +24,13 @@ classifiers = [
     "Topic :: Utilities",
 ]
 dependencies = [
-    "appdirs>=1.4.4",
     "autoimport>=1.6.1",
     "beautifulsoup4>=4.14.3",
     "browser-cookie3>=0.20.1",
     "click>=8.3.1",
     "gitpython>=3.1.45",
     "httpx>=0.28.1",
+    "platformdirs>=4.10.0",
     "pydantic>=2.13.4",
     "requests>=2.32.5",
 ]

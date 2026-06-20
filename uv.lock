@@ -29,15 +29,6 @@ wheels = [
 ]
 
 [[package]]
-name = "appdirs"
-version = "1.4.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d7/d8/05696357e0311f5b5c316d7b95f46c669dd9c15aaeecbb48c7d0aeb88c40/appdirs-1.4.4.tar.gz", hash = "sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41", size = 13470, upload-time = "2020-05-11T07:59:51.037Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl", hash = "sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128", size = 9566, upload-time = "2020-05-11T07:59:49.499Z" },
-]
-
-[[package]]
 name = "autoflake"
 version = "2.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -459,13 +450,13 @@ wheels = [
 name = "leet2git"
 source = { editable = "." }
 dependencies = [
-    { name = "appdirs" },
     { name = "autoimport" },
     { name = "beautifulsoup4" },
     { name = "browser-cookie3" },
     { name = "click" },
     { name = "gitpython" },
     { name = "httpx" },
+    { name = "platformdirs" },
     { name = "pydantic" },
     { name = "requests" },
 ]
@@ -483,7 +474,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "appdirs", specifier = ">=1.4.4" },
     { name = "autoimport", specifier = ">=1.6.1" },
     { name = "beautifulsoup4", specifier = ">=4.14.3" },
     { name = "browser-cookie3", specifier = ">=0.20.1" },
@@ -491,6 +481,7 @@ requires-dist = [
     { name = "click", specifier = ">=8.3.1" },
     { name = "gitpython", specifier = ">=3.1.45" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "platformdirs", specifier = ">=4.10.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.5.0" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.1.1" },

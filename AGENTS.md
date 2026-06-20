@@ -29,7 +29,7 @@
 ## Architecture Notes
 
 - `leet2git.py`: Click command entry points and command orchestration.
-- `config_manager.py`: user config file creation and loading.
+- `config_manager.py`: Pydantic config models plus platform-specific config/data paths via `platformdirs`.
 - `leetcode_client.py`: async-first LeetCode HTTP/session interactions using `httpx`, with sync wrappers for the Click CLI.
 - `question_db.py`: Pydantic question metadata models and local pickle-backed storage.
 - `file_handler.py`, `default_handler.py`, `python_handler.py`: file generation and language-specific behavior.
@@ -43,6 +43,7 @@
 - Use temporary directories for generated repositories, config files, question databases, and README output.
 - When changing CLI behavior, test with Click's testing utilities where practical.
 - Preserve compatibility with existing pickle-backed question databases when changing `QuestionData`, `IdTitleMap`, or `QuestionDB.load`.
+- Keep `ConfigManager.config` returning a plain dictionary unless the surrounding command/file-handler code is migrated together.
 - When changing LeetCode request shapes, keep unit tests on `httpx.MockTransport` and run a live smoke check against public unauthenticated endpoints such as GraphQL `questionData` and `/api/problems/all/`.
 
 ## Safety Notes
