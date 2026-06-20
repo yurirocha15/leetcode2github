@@ -11,6 +11,8 @@ jobs:
   deploy:
 
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v7
@@ -55,12 +57,24 @@ jobs:
         raise SystemExit("Could not find __version__")
         PY
         )"
-        latest_pypi_version="$(uv run python - <<'PY'
+        pypi_version_exists="$(CURRENT_VERSION="$current_version" uv run python - <<'PY'
         import json
+        import os
         import urllib.request
+        import urllib.error
 
-        with urllib.request.urlopen("https://pypi.org/pypi/leet2git/json", timeout=20) as response:
-            print(json.load(response)["info"]["version"])
+        current_version = os.environ["CURRENT_VERSION"]
+        url = f"https://pypi.org/pypi/leet2git/{current_version}/json"
+        try:
+            with urllib.request.urlopen(url, timeout=20) as response:
+                json.load(response)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                print("false")
+            else:
+                raise
+        else:
+            print("true")
         PY
         )"
 
@@ -69,7 +83,7 @@ jobs:
         if [ "$NEW_TAG_VERSION" != "$TAG_VERSION" ]; then
           release_version="$NEW_TAG_VERSION"
           release_reason="tag"
-        elif [ "$current_version" != "$latest_pypi_version" ]; then
+        elif [ "$pypi_version_exists" != "true" ]; then
           release_reason="package-version"
         fi
 
@@ -79,13 +93,13 @@ jobs:
         fi
 
         echo "current_version=$current_version" >> "$GITHUB_OUTPUT"
-        echo "latest_pypi_version=$latest_pypi_version" >> "$GITHUB_OUTPUT"
+        echo "pypi_version_exists=$pypi_version_exists" >> "$GITHUB_OUTPUT"
         echo "version=$release_version" >> "$GITHUB_OUTPUT"
         echo "reason=$release_reason" >> "$GITHUB_OUTPUT"
         echo "should_release=$should_release" >> "$GITHUB_OUTPUT"
 
         echo "Current version: $current_version"
-        echo "Latest PyPI version: $latest_pypi_version"
+        echo "Current version exists on PyPI: $pypi_version_exists"
         echo "Release version: $release_version"
         echo "Release reason: $release_reason"
     - name: Update app version
@@ -122,3 +136,68 @@ jobs:
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
+        skip-existing: true
+    - name: Verify PyPI release
+      if: ${{ steps.release_version.outputs.should_release == 'true' }}
+      env:
+        RELEASE_VERSION: ${{ steps.release_version.outputs.version }}
+      run: |
+        uv run python - <<'PY'
+        import json
+        import os
+        import time
+        import urllib.request
+
+        release_version = os.environ["RELEASE_VERSION"]
+        url = f"https://pypi.org/pypi/leet2git/{release_version}/json"
+
+        for _ in range(12):
+            try:
+                with urllib.request.urlopen(url, timeout=20) as response:
+                    payload = json.load(response)
+            except Exception:
+                time.sleep(5)
+                continue
+            if payload["info"]["version"] == release_version:
+                print(f"Verified leet2git {release_version} on PyPI")
+                break
+            time.sleep(5)
+        else:
+            raise SystemExit(f"Could not verify leet2git {release_version} on PyPI")
+        PY
+    - name: Create GitHub release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RELEASE_VERSION: ${{ steps.release_version.outputs.version }}
+      run: |
+        tag="v$RELEASE_VERSION"
+        if ! uv run python - <<'PY'
+        import json
+        import os
+        import urllib.error
+        import urllib.request
+
+        release_version = os.environ["RELEASE_VERSION"]
+        url = f"https://pypi.org/pypi/leet2git/{release_version}/json"
+        try:
+            with urllib.request.urlopen(url, timeout=20) as response:
+                json.load(response)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                raise SystemExit(1)
+            raise
+        PY
+        then
+          echo "leet2git $RELEASE_VERSION is not on PyPI yet; skipping GitHub release"
+          exit 0
+        fi
+
+        if gh release view "$tag" >/dev/null 2>&1; then
+          echo "Release $tag already exists"
+        else
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            git tag "$tag"
+            git push origin "$tag"
+          fi
+          gh release create "$tag" --title "$tag" --generate-notes
+        fi
