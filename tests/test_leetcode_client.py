@@ -1,19 +1,143 @@
 import asyncio
 import json
+from http.cookiejar import Cookie, CookieJar
 
 import httpx
+import pytest
 
-from leet2git.leetcode_client import LeetcodeClient
+from leet2git.leetcode_client import LeetcodeAuthError, LeetcodeClient
+
+
+def cookie(name: str, value: str, domain: str) -> Cookie:
+    return Cookie(
+        version=0,
+        name=name,
+        value=value,
+        port=None,
+        port_specified=False,
+        domain=domain,
+        domain_specified=domain.startswith("."),
+        domain_initial_dot=domain.startswith("."),
+        path="/",
+        path_specified=True,
+        secure=True,
+        expires=None,
+        discard=True,
+        comment=None,
+        comment_url=None,
+        rest={},
+        rfc2109=False,
+    )
+
+
+def cookie_jar(*cookies: Cookie) -> CookieJar:
+    jar = CookieJar()
+    for cookie_item in cookies:
+        jar.set_cookie(cookie_item)
+    return jar
 
 
 def make_client(handler):
     client = LeetcodeClient.__new__(LeetcodeClient)
     client.divider = "/"
     client.cookies = ""
-    client.csrftoken = ""
+    client.csrftoken = "csrf"
     client._transport = httpx.MockTransport(handler)
     client._timeout = 5.0
     return client
+
+
+def test_get_cookies_reads_chrome_session_and_host_only_csrf(monkeypatch):
+    chrome_cookies = cookie_jar(
+        cookie("LEETCODE_SESSION", "session", ".leetcode.com"),
+        cookie("csrftoken", "csrf", "leetcode.com"),
+        cookie("unrelated", "ignored", "example.com"),
+    )
+
+    monkeypatch.setattr("leet2git.leetcode_client.browser_cookie3.chrome", lambda: chrome_cookies)
+    monkeypatch.setattr(
+        "leet2git.leetcode_client.browser_cookie3.firefox",
+        lambda: pytest.fail("Firefox should not be used when Chrome has a session"),
+    )
+
+    client = LeetcodeClient()
+
+    assert client.csrftoken == "csrf"
+    assert "LEETCODE_SESSION=session" in client.cookies
+    assert "csrftoken=csrf" in client.cookies
+    assert "unrelated=ignored" not in client.cookies
+
+
+def test_get_cookies_requires_leetcode_session(monkeypatch):
+    chrome_cookies = cookie_jar(cookie("csrftoken", "csrf", "leetcode.com"))
+    firefox_cookies = cookie_jar()
+
+    monkeypatch.setattr("leet2git.leetcode_client.browser_cookie3.chrome", lambda: chrome_cookies)
+    monkeypatch.setattr("leet2git.leetcode_client.browser_cookie3.firefox", lambda: firefox_cookies)
+
+    with pytest.raises(LeetcodeAuthError, match="Could not find a LeetCode login session"):
+        LeetcodeClient()
+
+
+def test_get_cookies_allows_missing_csrf_for_read_only_requests(monkeypatch):
+    chrome_cookies = cookie_jar(cookie("LEETCODE_SESSION", "session", ".leetcode.com"))
+
+    monkeypatch.setattr("leet2git.leetcode_client.browser_cookie3.chrome", lambda: chrome_cookies)
+    monkeypatch.setattr(
+        "leet2git.leetcode_client.browser_cookie3.firefox",
+        lambda: pytest.fail("Firefox should not be used when Chrome has a session"),
+    )
+
+    client = LeetcodeClient()
+
+    assert client.csrftoken == ""
+    assert "x-csrftoken" not in client.get_headers()
+
+
+def test_get_cookies_uses_firefox_when_chrome_has_no_session(monkeypatch):
+    chrome_cookies = cookie_jar(cookie("csrftoken", "stale", "leetcode.com"))
+    firefox_cookies = cookie_jar(
+        cookie("LEETCODE_SESSION", "firefox-session", ".leetcode.com"),
+        cookie("csrftoken", "firefox-csrf", "leetcode.com"),
+    )
+
+    monkeypatch.setattr("leet2git.leetcode_client.browser_cookie3.chrome", lambda: chrome_cookies)
+    monkeypatch.setattr("leet2git.leetcode_client.browser_cookie3.firefox", lambda: firefox_cookies)
+
+    client = LeetcodeClient()
+
+    assert client.csrftoken == "firefox-csrf"
+    assert "LEETCODE_SESSION=firefox-session" in client.cookies
+
+
+def test_get_headers_include_cookie_and_conditional_csrf():
+    client = LeetcodeClient.__new__(LeetcodeClient)
+    client.cookies = "LEETCODE_SESSION=session; csrftoken=csrf"
+    client.csrftoken = "csrf"
+
+    headers = client.get_headers()
+
+    assert headers["cookie"] == "LEETCODE_SESSION=session; csrftoken=csrf"
+    assert headers["x-csrftoken"] == "csrf"
+    assert headers["user-agent"]
+
+
+def test_mutating_requests_require_csrf():
+    client = make_client(lambda _: httpx.Response(500))
+    client.cookies = "LEETCODE_SESSION=session"
+    client.csrftoken = ""
+
+    with pytest.raises(LeetcodeAuthError, match="csrftoken"):
+        asyncio.run(
+            client.async_submit_question(
+                "class Solution: ...",
+                1,
+                "two-sum",
+                "python3",
+                is_test=True,
+                test_input="[2,7,11,15]\n9",
+            )
+        )
 
 
 def test_async_scrap_question_data_posts_current_graphql_shape():

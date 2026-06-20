@@ -10,15 +10,25 @@ import platform
 import re
 import time
 import traceback
+from http.cookiejar import Cookie, CookieJar
 from typing import Any
 
 import browser_cookie3
 import click
 import httpx
-import requests
 from bs4 import BeautifulSoup
 
 from leet2git.question_db import IdTitleMap, QuestionData
+
+LEETCODE_COOKIE_DOMAINS = {"leetcode.com", ".leetcode.com"}
+USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+)
+
+
+class LeetcodeAuthError(RuntimeError):
+    """Raised when local browser cookies cannot authenticate with LeetCode."""
 
 
 class LeetcodeClient:
@@ -46,23 +56,25 @@ class LeetcodeClient:
         Returns:
             Tuple[str, str]: the raw cookies and the csrftoken
         """
-        url: str = "https://leetcode.com/profile/"
-        client = requests.session()
         browsers = (browser_cookie3.chrome, browser_cookie3.firefox)
-        cookies = ""
-        csrftoken = ""
 
         for browser in browsers:
             try:
-                r = client.get(url, cookies=browser())
-                cookies = str(r.request.headers["Cookie"])
-                csrftoken = str(client.cookies["csrftoken"])
+                cookie_jar = browser()
             except browser_cookie3.BrowserCookieError as e:
                 click.secho(e.args, fg="red")
-            if csrftoken:
-                break
+                continue
 
-        return cookies, csrftoken
+            leetcode_cookies = self._get_leetcode_cookies(cookie_jar)
+            if self._has_cookie(leetcode_cookies, "LEETCODE_SESSION"):
+                return self._build_cookie_header(leetcode_cookies), self._get_cookie_value(
+                    leetcode_cookies, "csrftoken"
+                )
+
+        raise LeetcodeAuthError(
+            "Could not find a LeetCode login session in Chrome or Firefox. "
+            "Log in to https://leetcode.com in a local browser and try again."
+        )
 
     def get_headers(self) -> dict[str, str]:
         """Return the headers needed to call leetcode api
@@ -80,9 +92,11 @@ class LeetcodeClient:
             "accept": "*/*",
             "referer": "https://leetcode.com",
             "origin": "https://leetcode.com",
-            "x-csrftoken": self.csrftoken,
+            "user-agent": USER_AGENT,
             "cookie": self.cookies,
         }
+        if self.csrftoken:
+            headers["x-csrftoken"] = self.csrftoken
 
         return headers
 
@@ -287,6 +301,11 @@ class LeetcodeClient:
         test_input: str = "",
     ) -> None:
         """Submit or test a question asynchronously."""
+        if not self.csrftoken:
+            raise LeetcodeAuthError(
+                "LeetCode did not expose a csrftoken cookie. Refusing to call a mutating "
+                "submit/run endpoint because the current LeetCode auth flow may have changed."
+            )
         url: str = f"https://leetcode.com/problems/{title_slug}/" + (
             "interpret_solution/" if is_test else "submit/"
         )
@@ -398,6 +417,25 @@ class LeetcodeClient:
             response = await client.request(method, url, json=json_body)
             response.raise_for_status()
             return response.json()
+
+    def _get_leetcode_cookies(self, cookie_jar: CookieJar) -> list[Cookie]:
+        """Return browser cookies scoped to LeetCode."""
+        return [cookie for cookie in cookie_jar if cookie.domain in LEETCODE_COOKIE_DOMAINS]
+
+    def _has_cookie(self, cookies: list[Cookie], name: str) -> bool:
+        """Check whether a LeetCode cookie exists."""
+        return any(cookie.name == name and bool(cookie.value) for cookie in cookies)
+
+    def _get_cookie_value(self, cookies: list[Cookie], name: str) -> str:
+        """Return a LeetCode cookie value without logging it."""
+        for cookie in cookies:
+            if cookie.name == name:
+                return cookie.value or ""
+        return ""
+
+    def _build_cookie_header(self, cookies: list[Cookie]) -> str:
+        """Build a Cookie header from browser cookies without a profile-page request."""
+        return "; ".join(f"{cookie.name}={cookie.value}" for cookie in cookies if cookie.value)
 
 
 if __name__ == "__main__":

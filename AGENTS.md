@@ -45,6 +45,8 @@
 - Preserve compatibility with existing pickle-backed question databases when changing `QuestionData`, `IdTitleMap`, or `QuestionDB.load`.
 - Keep `ConfigManager.config` returning a plain dictionary unless the surrounding command/file-handler code is migrated together.
 - When changing LeetCode request shapes, keep unit tests on `httpx.MockTransport` and run a live smoke check against public unauthenticated endpoints such as GraphQL `questionData` and `/api/problems/all/`.
+- When changing authenticated LeetCode requests, run `uv run python scripts/smoke_leetcode_auth.py` if the user has explicitly allowed local browser-cookie checks.
+- Treat broken LeetCode auth or request behavior as a LeetCode API/auth change to investigate; do not keep obsolete request paths as fallbacks.
 
 ## Safety Notes
 
