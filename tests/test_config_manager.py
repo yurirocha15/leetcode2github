@@ -1,12 +1,12 @@
 import json
 
-from leet2git.config_manager import AppConfig, ConfigManager
+from leet2git.config_manager import AppConfig, ConfigManager, ConfigOverrides
 
 
 def make_config_manager(tmp_path):
     manager = ConfigManager.__new__(ConfigManager)
     manager._config_path = str(tmp_path)
-    manager._data_path = str(tmp_path / "data")
+    manager._legacy_data_path = str(tmp_path / "data")
     manager._config_file = str(tmp_path / "config.json")
     manager._config = None
     return manager
@@ -36,13 +36,13 @@ def test_load_config_validates_json_and_applies_overrides(tmp_path):
             file,
         )
 
-    manager.load_config({"language": "rust", "source_path": "/tmp/new"})
+    manager.load_config(ConfigOverrides(language="rust", source_path="/tmp/new"))
 
-    assert manager.config["language"] == "rust"
-    assert manager.config["source_path"] == "/tmp/new"
-    assert manager.config["data_path"] == str(tmp_path / "data")
-    assert manager.config["readme"]["show_difficulty"] is False
-    assert manager.config["source_code"]["add_description"] is False
+    assert manager.config.language == "rust"
+    assert manager.config.source_path == "/tmp/new"
+    assert manager.config.legacy_data_path == str(tmp_path / "data")
+    assert manager.config.readme.show_difficulty is False
+    assert manager.config.source_code.add_description is False
 
 
 def test_reset_config_writes_user_editable_json_without_data_path(tmp_path, monkeypatch):
@@ -56,5 +56,5 @@ def test_reset_config_writes_user_editable_json_without_data_path(tmp_path, monk
 
     assert saved_config["source_path"] == "/tmp/solutions"
     assert saved_config["language"] == "python3"
-    assert "data_path" not in saved_config
-    assert manager.config["data_path"] == str(tmp_path / "data")
+    assert "legacy_data_path" not in saved_config
+    assert manager.config.legacy_data_path == str(tmp_path / "data")

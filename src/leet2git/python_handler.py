@@ -5,15 +5,16 @@ Authors:
 """
 
 import ast
+import io
 import os
-import re
 import shutil
 import subprocess
-from typing import Any
+import tokenize
 
 import click
 from autoimport import fix_files
 
+from leet2git.config_manager import AppConfig
 from leet2git.file_handler import FileHandler
 from leet2git.question_db import QuestionData
 
@@ -26,9 +27,9 @@ class PythonHandler(FileHandler):
     def __init__(self) -> None:
         super().__init__()
         self.question_data: QuestionData = QuestionData()
-        self.config: dict[str, Any] = {}
+        self.config: AppConfig = AppConfig()
 
-    def set_data(self, question_data: QuestionData, config: dict[str, Any]):
+    def set_data(self, question_data: QuestionData, config: AppConfig):
         """Sets the data needed to generate the files
 
         Args:
@@ -44,16 +45,9 @@ class PythonHandler(FileHandler):
         Returns:
             List[str]: a list with all function names
         """
-        functions: list[str] = re.findall(
-            r"[^#\s*]\s+def\s+(.*?)\(self,", self.question_data.question_template
-        )
+        functions = self._get_template_callables(self.question_data.question_template)
         if not functions:
             raise ValueError("Could not find a Python function in the LeetCode code template.")
-        if functions[0] == "__init__":
-            classes = re.findall(r"^class\s+(.*?):", self.question_data.question_template)
-            if not classes:
-                raise ValueError("Could not find a Python class in the LeetCode code template.")
-            functions[0] = classes[0]
         self.question_data.function_name = functions
         return functions
 
@@ -67,7 +61,7 @@ class PythonHandler(FileHandler):
         extension: str = self.conversions[self.question_data.language]["extension"]
         description = (
             [comment + " " + line + "\n" for line in self.question_data.description]
-            if self.config["source_code"]["add_description"]
+            if self.config.source_code.add_description
             else []
         )
         lines: list[str] = (
@@ -93,7 +87,7 @@ class PythonHandler(FileHandler):
         lines.extend(code_lines)
         self.question_data.file_path += extension
 
-        full_path: str = os.path.join(self.config["source_path"], self.question_data.file_path)
+        full_path: str = os.path.join(self.config.source_path, self.question_data.file_path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
         with open(full_path, "w", encoding="UTF8") as f:
@@ -103,23 +97,23 @@ class PythonHandler(FileHandler):
         with open(full_path, "r+", encoding="UTF8") as f:
             fix_files((f,))
 
-        # add main
-        with open(full_path, "a", encoding="UTF8") as f:
-            f.write("\n")
-            f.write("\n")
-            f.write('if __name__ == "__main__":\n')
-            f.write("    import pytest\n")
-            f.write("    import os\n")
-            f.write(
-                f"    pytest.main([os.path.join('tests', 'test_{self.question_data.id}{extension}')])\n"
-            )
-            f.write("")
+        if self.config.test_code.generate_tests:
+            with open(full_path, "a", encoding="UTF8") as f:
+                f.write("\n")
+                f.write("\n")
+                f.write('if __name__ == "__main__":\n')
+                f.write("    import pytest\n")
+                f.write("    import os\n")
+                f.write(
+                    f"    pytest.main([os.path.join('tests', 'test_{self.question_data.id}{extension}')])\n"
+                )
+                f.write("")
 
         self.run_formatter(full_path)
 
         return self.question_data.file_path
 
-    def generete_tests(self) -> str:
+    def generate_tests(self) -> str:
         """Generates the test file
 
         Returns:
@@ -150,7 +144,7 @@ class PythonHandler(FileHandler):
         elif not self.question_data.function_name:
             raise ValueError("No function name")
         full_path: str = os.path.join(
-            self.config["source_path"], "tests", f"test_{self.question_data.id}{extension}"
+            self.config.source_path, "tests", f"test_{self.question_data.id}{extension}"
         )
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(
@@ -229,17 +223,20 @@ class PythonHandler(FileHandler):
         Returns:
             str: a string containing the code
         """
-        code: str = ""
-        # regex to match main definition
-        match = r"""^if\s+__name__\s+==\s+('|")__main__('|")\s*:\s*"""
-        full_path: str = os.path.join(self.config["source_path"], self.question_data.file_path)
+        full_path: str = os.path.join(self.config.source_path, self.question_data.file_path)
         with open(full_path, encoding="UTF8") as f:
-            for line in f:
-                if re.match(match, line):
-                    break
-                code += line
+            source = f.read()
 
-        return code
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return source
+
+        main_line = self._find_main_block_line(tree)
+        if main_line is None:
+            return source
+
+        return "".join(source.splitlines(keepends=True)[: main_line - 1])
 
     def generate_repo(self, folder_path: str):
         """Generates a git repository
@@ -265,12 +262,67 @@ class PythonHandler(FileHandler):
             List[str]: a list of lines of code
         """
         lines = []
-        for _, line in enumerate(raw_code.split("\n")):
+        pass_after_lines = self._template_function_lines(raw_code) if not is_solution else set()
+        for line_number, line in enumerate(raw_code.splitlines(), start=1):
             lines.append(line + "\n")
-            if re.match(r"^\s+def\s+(.*?)\(self,", line) and not is_solution:
+            if line_number in pass_after_lines:
                 lines.append("        pass\n")
+        if raw_code.endswith("\n"):
+            lines.append("")
 
         return lines
+
+    def _get_template_callables(self, source: str) -> list[str]:
+        """Return callable names from a Python LeetCode template."""
+        functions: list[str] = []
+        class_stack: list[tuple[int, str]] = []
+        tokens = tokenize.generate_tokens(io.StringIO(source).readline)
+        for token in tokens:
+            if token.type == tokenize.NAME and token.string == "class":
+                class_token = next(tokens, None)
+                if class_token and class_token.type == tokenize.NAME:
+                    class_stack.append((token.start[1], class_token.string))
+            elif token.type == tokenize.NAME and token.string == "def":
+                function_token = next(tokens, None)
+                if not function_token or function_token.type != tokenize.NAME:
+                    continue
+                if function_token.string == "__init__" and class_stack:
+                    functions.append(class_stack[-1][1])
+                else:
+                    functions.append(function_token.string)
+
+        return functions
+
+    def _template_function_lines(self, source: str) -> set[int]:
+        """Return template function line numbers that need placeholder bodies."""
+        lines: set[int] = set()
+        tokens = tokenize.generate_tokens(io.StringIO(source).readline)
+        for token in tokens:
+            if token.type != tokenize.NAME or token.string != "def":
+                continue
+            function_token = next(tokens, None)
+            if function_token and function_token.type == tokenize.NAME:
+                lines.add(token.start[0])
+        return lines
+
+    def _find_main_block_line(self, tree: ast.Module) -> int | None:
+        """Return the line number of a generated __main__ block, if present."""
+        for node in tree.body:
+            if not isinstance(node, ast.If):
+                continue
+            compare = node.test
+            if not isinstance(compare, ast.Compare):
+                continue
+            if not isinstance(compare.left, ast.Name) or compare.left.id != "__name__":
+                continue
+            if len(compare.ops) != 1 or not isinstance(compare.ops[0], ast.Eq):
+                continue
+            if len(compare.comparators) != 1:
+                continue
+            comparator = compare.comparators[0]
+            if isinstance(comparator, ast.Constant) and comparator.value == "__main__":
+                return node.lineno
+        return None
 
     def run_formatter(self, file_path: str) -> None:
         """Run Ruff formatter if it is available.

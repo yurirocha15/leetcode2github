@@ -1,6 +1,11 @@
 import pickle
 
-from leet2git.question_db import IdTitleMap, QuestionData, QuestionDB
+from leet2git.config_manager import AppConfig
+from leet2git.question_db import IdTitleMap, QuestionData, QuestionDB, TopicTag
+
+
+def make_config(tmp_path):
+    return AppConfig(source_path=str(tmp_path / "solutions"), legacy_data_path=str(tmp_path / "legacy"))
 
 
 def test_question_data_uses_isolated_defaults():
@@ -8,7 +13,7 @@ def test_question_data_uses_isolated_defaults():
     second = QuestionData(id=2)
 
     first.inputs.append("[1, 2]")
-    first.categories.append({"name": "Array", "slug": "array"})
+    first.categories.append(TopicTag(name="Array", slug="array"))
 
     assert second.inputs == []
     assert second.categories == []
@@ -31,7 +36,7 @@ def test_question_data_validates_and_coerces_fields():
 
 
 def test_question_db_round_trips_pydantic_models(tmp_path):
-    config = {"data_path": str(tmp_path)}
+    config = make_config(tmp_path)
     question_db = QuestionDB(config)
     question_db.add_question(QuestionData(id=1, title="Two Sum"))
     question_db.set_id_title_map(IdTitleMap(id_to_title={1: "two-sum"}, title_to_id={"two-sum": 1}))
@@ -46,12 +51,14 @@ def test_question_db_round_trips_pydantic_models(tmp_path):
 
 
 def test_question_db_loads_legacy_dict_payloads(tmp_path):
-    config = {"data_path": str(tmp_path)}
+    config = make_config(tmp_path)
     question_db = QuestionDB(config)
+    legacy_path = tmp_path / "legacy"
+    legacy_path.mkdir()
 
-    with open(question_db.db_file, "wb") as file:
+    with open(question_db.legacy_db_file, "wb") as file:
         pickle.dump({1: {"id": "1", "title": "Two Sum"}}, file)
-    with open(question_db.id_title_map_file, "wb") as file:
+    with open(question_db.legacy_id_title_map_file, "wb") as file:
         pickle.dump({"id_to_title": {"1": "two-sum"}, "title_to_id": {"two-sum": "1"}}, file)
 
     question_db.load()
@@ -59,6 +66,7 @@ def test_question_db_loads_legacy_dict_payloads(tmp_path):
     assert question_db.get_question(1) == QuestionData(id=1, title="Two Sum")
     assert question_db.get_title_from_id(1) == "two-sum"
     assert question_db.get_id_from_title("two-sum") == 1
+    assert question_db.migrated_from_legacy is True
 
 
 def test_question_data_unpickles_dataclass_style_state():

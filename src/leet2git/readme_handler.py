@@ -6,8 +6,8 @@ Authors:
 
 import os
 from dataclasses import dataclass, field
-from typing import Any
 
+from leet2git.config_manager import AppConfig
 from leet2git.question_db import QuestionData, QuestionDB
 
 
@@ -23,10 +23,10 @@ class ReadmeTable:
 class ReadmeHandler:
     """Updates the README with the solved questions"""
 
-    def __init__(self, config: dict[str, Any]):
-        self.readme_file: str = os.path.join(config["source_path"], "README.md")
-        self.print_categories: bool = config["readme"]["show_category"]
-        self.print_difficulty: bool = config["readme"]["show_difficulty"]
+    def __init__(self, config: AppConfig):
+        self.readme_file: str = os.path.join(config.source_path, "README.md")
+        self.print_categories: bool = config.readme.show_category
+        self.print_difficulty: bool = config.readme.show_difficulty
 
     def build_readme(self, question_list: list[QuestionData]):
         """Updates the README file
@@ -63,22 +63,22 @@ class ReadmeHandler:
             categories_str = ""
             for c in question.categories:
                 if self.print_categories:
-                    categories_str += f"[{c['name']}](#{c['slug']}), "
-                    if c["slug"] not in category_tables:
-                        category_tables[c["slug"]] = ReadmeTable(
-                            title=f"""<a name="{c["slug"]}"></a>{c["name"]}""",
+                    categories_str += f"[{c.name}](#{c.slug}), "
+                    if c.slug not in category_tables:
+                        category_tables[c.slug] = ReadmeTable(
+                            title=f"""<a name="{c.slug}"></a>{c.name}""",
                             fields=["ID", "Problem", "Leetcode ID", "Difficulty"],
                         )
-                    category_tables[c["slug"]].values.append(
+                    category_tables[c.slug].values.append(
                         [
-                            str(len(category_tables[c["slug"]].values) + 1),
+                            str(len(category_tables[c.slug].values) + 1),
                             f"[{question.title}]({question.file_path})",
                             f"[{question.id}]({question.url})",
                             difficulty_str,
                         ]
                     )
                 else:
-                    categories_str += c["name"] + ", "
+                    categories_str += c.name + ", "
 
             categories_str = categories_str[:-2]
             if not question.difficulty:

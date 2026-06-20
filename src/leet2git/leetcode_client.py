@@ -7,16 +7,31 @@ Authors:
 import asyncio
 import os
 import platform
-import re
+import textwrap
 import time
+from collections.abc import Coroutine
 from http.cookiejar import Cookie, CookieJar
-from typing import Any
+from typing import Any, TypeVar
 
 import browser_cookie3
 import click
 import httpx
 from bs4 import BeautifulSoup
+from pydantic import BaseModel, ValidationError
 
+from leet2git.leetcode_models import (
+    InterpretSolutionResponse,
+    LatestSubmissionResponse,
+    ProblemListResponse,
+    QuestionDataRequest,
+    QuestionDataResponse,
+    QuestionDataVariables,
+    QuestionPayload,
+    SubmissionListResponse,
+    SubmissionResultResponse,
+    SubmitSolutionPayload,
+    SubmitSolutionResponse,
+)
 from leet2git.question_db import IdTitleMap, QuestionData
 
 LEETCODE_COOKIE_DOMAINS = {"leetcode.com", ".leetcode.com"}
@@ -24,6 +39,7 @@ USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
 )
+ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
 
 
 class LeetcodeAuthError(RuntimeError):
@@ -122,26 +138,20 @@ class LeetcodeClient:
         question = self._get_question_payload(leetcode_question_data, title_slug)
 
         data = QuestionData(id=question_id, creation_time=time.time())
-        data.internal_id = int(self._require_str(question, "questionId", "questionData.question"))
-        data.title = self._require_str(question, "title", "questionData.question")
-        data.title_slug = self._require_str(question, "titleSlug", "questionData.question")
+        data.internal_id = int(question.question_id)
+        data.title = question.title
+        data.title_slug = question.title_slug
         data.url = "https://leetcode.com/problems/" + data.title_slug
-        data.difficulty = self._require_str(question, "difficulty", "questionData.question")
+        data.difficulty = question.difficulty
         data.question_template = self._get_code_snippet(question, language)
-        data.categories = self._require_list(question, "topicTags", "questionData.question")
+        data.categories = question.topic_tags
 
-        # fix #24. 10<sup>5</sup> becomes 10^5
-        soup = BeautifulSoup(
-            re.sub(
-                r"(?:\<sup\>)(\d+)(?:\<\/sup\>)",
-                r"^\1",
-                self._require_str(question, "content", "questionData.question"),
-            ),
-            features="html.parser",
-        )
+        soup = BeautifulSoup(question.content, features="html.parser")
+        for sup in soup.find_all("sup"):
+            sup.string = "^" + sup.get_text()
         data.description = soup.get_text().replace("\r\n", "\n").split("\n")
-        sample_test_case = self._require_str(question, "sampleTestCase", "questionData.question")
-        example_test_cases = self._require_str(question, "exampleTestcases", "questionData.question")
+        sample_test_case = question.sample_test_case
+        example_test_cases = question.example_testcases
         num_of_inputs = len(sample_test_case.split("\n"))
         inputs = example_test_cases.split("\n")
         data.inputs = [
@@ -150,7 +160,8 @@ class LeetcodeClient:
         tmp_description = []
         example_started = False
         for idx, line in enumerate(data.description):
-            if re.match(r"\s*Example\s*[0-9]*:", line):
+            stripped_line = line.strip()
+            if stripped_line.startswith("Example") and stripped_line.endswith(":"):
                 example_started = True
             elif "Output: " in line and example_started:
                 data.outputs.append(line[8:])
@@ -159,17 +170,7 @@ class LeetcodeClient:
                 data.outputs.append(data.description[idx + 1].strip())
                 example_started = False
             if len(line) > 100:
-                # split on commas or periods, while keeping them
-                split_line = re.split(r"(?<=[\.\,])\s*", line)
-                tmp_line = ""
-                for phrase in split_line:
-                    if not tmp_line or len(tmp_line) + len(phrase) <= 100:
-                        tmp_line += phrase
-                    else:
-                        tmp_description.append(tmp_line)
-                        tmp_line = phrase
-                if tmp_line:
-                    tmp_description.append(tmp_line)
+                tmp_description.extend(textwrap.wrap(line, width=100, break_long_words=False))
             else:
                 tmp_description.append(line)
         data.description = tmp_description
@@ -184,11 +185,11 @@ class LeetcodeClient:
 
         return data, True
 
-    def scrap_question_data(self, question_name: str) -> dict[str, Any]:
+    def scrap_question_data(self, question_name: str) -> QuestionDataResponse:
         """Query question information using the async HTTP implementation."""
         return self._run_async(self.async_scrap_question_data(question_name))
 
-    async def async_scrap_question_data(self, question_name: str) -> dict[str, Any]:
+    async def async_scrap_question_data(self, question_name: str) -> QuestionDataResponse:
         """Query a question information
 
         Args:
@@ -199,10 +200,9 @@ class LeetcodeClient:
         """
         url: str = "https://leetcode.com/graphql"
 
-        payload = {
-            "operationName": "questionData",
-            "variables": {"titleSlug": question_name},
-            "query": "query questionData($titleSlug: String) {\n  question(titleSlug: $titleSlug) {\
+        payload = QuestionDataRequest(
+            variables=QuestionDataVariables(titleSlug=question_name),
+            query="query questionData($titleSlug: String) {\n  question(titleSlug: $titleSlug) {\
                 \n    questionId\
                 \n    questionFrontendId\
                 \n    title\
@@ -239,9 +239,9 @@ class LeetcodeClient:
                 \n    sampleTestCase\
                 \n    metaData\
                 \n    __typename\n  }\n}\n",
-        }
+        )
 
-        return await self._request_json("POST", url, json_body=payload)
+        return await self._request_json("POST", url, QuestionDataResponse, json_body=payload)
 
     def get_latest_submission(self, qid: str, language: str) -> str:
         """Get the latest submission for a question
@@ -254,17 +254,13 @@ class LeetcodeClient:
         Returns:
             str: the submitted code
         """
-        raw_code: str = ""
-        try:
-            raw_code = self._run_async(self.async_get_latest_submission(qid, language))
-        except LeetcodeAPIError as e:
-            click.secho(e.args, fg="red")
-        return raw_code
+        return self._run_async(self.async_get_latest_submission(qid, language))
 
     async def async_get_latest_submission(self, qid: str, language: str) -> str:
         """Get the latest submission for a question asynchronously."""
         url: str = f"https://leetcode.com/submissions/latest/?qid={qid}&lang={language}"
-        return self._require_str(await self._request_json("GET", url), "code", "latest submission")
+        response = await self._request_json("GET", url, LatestSubmissionResponse)
+        return response.code
 
     def submit_question(
         self,
@@ -308,68 +304,76 @@ class LeetcodeClient:
             "interpret_solution/" if is_test else "submit/"
         )
 
-        payload_dict: dict[str, Any] = {
-            "question_id": internal_id,
-            "lang": language,
-            "typed_code": code,
-        }
+        payload = SubmitSolutionPayload(question_id=internal_id, lang=language, typed_code=code)
         if is_test:
-            payload_dict["data_input"] = test_input
-            payload_dict["judge_type"] = "large"
+            payload.data_input = test_input
+            payload.judge_type = "large"
 
-        submission_field: str = "interpret_id" if is_test else "submission_id"
-        submission_response = await self._request_json("POST", url, json_body=payload_dict)
-        submission_id = self._require_int(submission_response, submission_field, "submit response")
+        if is_test:
+            submission_response = await self._request_json(
+                "POST",
+                url,
+                InterpretSolutionResponse,
+                json_body=payload,
+            )
+            submission_id = submission_response.interpret_id
+        else:
+            submission_response = await self._request_json(
+                "POST",
+                url,
+                SubmitSolutionResponse,
+                json_body=payload,
+            )
+            submission_id = submission_response.submission_id
         click.secho("Waiting for submission results...")
         url = f"https://leetcode.com/submissions/detail/{submission_id}/check/"
 
-        submission_result: dict[str, Any] = {}
+        submission_result: SubmissionResultResponse | None = None
         status: str = ""
         while status != "SUCCESS":
-            submission_result = await self._request_json("GET", url)
-            status = self._require_str(submission_result, "state", "submission status")
+            submission_result = await self._request_json("GET", url, SubmissionResultResponse)
+            status = submission_result.state
             await asyncio.sleep(1)
 
+        if submission_result is None:
+            raise LeetcodeAPIError("LeetCode did not return a submission result.")
+
         click.clear()
-        click.secho(f"Result: {submission_result.get('status_msg', 'Unknown')}")
-        status_code = submission_result.get("status_code")
+        click.secho(f"Result: {submission_result.status_msg or 'Unknown'}")
+        status_code = submission_result.status_code
         if status_code == 10:
             click.secho(
-                f"Total Runtime: {submission_result.get('status_runtime', 'unknown')} "
-                + (
-                    ""
-                    if is_test
-                    else f"(Better than {float(submission_result.get('runtime_percentile', 0)):.2f}%)"
-                )
+                f"Total Runtime: {submission_result.status_runtime or 'unknown'} "
+                + ("" if is_test else f"(Better than {submission_result.runtime_percentile or 0:.2f}%)")
             )
             click.secho(
-                f"Total Memory: {submission_result.get('status_memory', 'unknown')} "
-                + (
-                    ""
-                    if is_test
-                    else f"(Better than {float(submission_result.get('memory_percentile', 0)):.2f}%)"
-                )
+                f"Total Memory: {submission_result.status_memory or 'unknown'} "
+                + ("" if is_test else f"(Better than {submission_result.memory_percentile or 0:.2f}%)")
             )
         elif status_code == 11:
-            click.secho(f"Last Input: {submission_result.get('input_formatted', 'unknown')}")
-            click.secho(f"Expected Output: {submission_result.get('expected_output', 'unknown')}")
-            click.secho(f"Code Output: {submission_result.get('code_output', 'unknown')}")
+            click.secho(f"Last Input: {submission_result.input_formatted or 'unknown'}")
+            click.secho(f"Expected Output: {submission_result.expected_output or 'unknown'}")
+            click.secho(f"Code Output: {submission_result.code_output or 'unknown'}")
         elif status_code == 14:
             nl = "\n"
-            last_testcase = str(submission_result.get("last_testcase", "unknown")).replace(nl, " ")
+            last_testcase = (submission_result.last_testcase or "unknown").replace(nl, " ")
             click.secho(f"Last Input: {last_testcase}")
-            click.secho(f"Expected Output: {submission_result.get('expected_output', 'unknown')}")
-            click.secho(f"Code Output: {submission_result.get('code_output', 'unknown')}")
+            click.secho(f"Expected Output: {submission_result.expected_output or 'unknown'}")
+            click.secho(f"Code Output: {submission_result.code_output or 'unknown'}")
         elif status_code == 15:
-            click.secho(f"Runtime Error: {submission_result.get('runtime_error', 'unknown')}")
+            click.secho(f"Runtime Error: {submission_result.runtime_error or 'unknown'}")
         elif status_code == 20:
-            click.secho(f"Compile Error: {submission_result.get('compile_error', 'unknown')}")
+            click.secho(f"Compile Error: {submission_result.compile_error or 'unknown'}")
 
-    def get_submission_list(self, last_key: str = "", offset: int = 0) -> dict[str, Any]:
+    def get_submission_list(self, last_key: str = "", offset: int = 0) -> SubmissionListResponse:
         """Get a list with 20 submissions using the async HTTP implementation."""
         return self._run_async(self.async_get_submission_list(last_key, offset))
 
-    async def async_get_submission_list(self, last_key: str = "", offset: int = 0) -> dict[str, Any]:
+    async def async_get_submission_list(
+        self,
+        last_key: str = "",
+        offset: int = 0,
+    ) -> SubmissionListResponse:
         """Get a list with 20 submissions
 
         Args:
@@ -381,14 +385,7 @@ class LeetcodeClient:
         """
         url: str = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey={last_key}"
 
-        response = await self._request_json("GET", url)
-        self._require_list(response, "submissions_dump", "submission list")
-        if not isinstance(response.get("has_next"), bool):
-            raise LeetcodeAPIError(
-                "LeetCode submission list response is missing boolean field has_next."
-            )
-        self._require_str(response, "last_key", "submission list")
-        return response
+        return await self._request_json("GET", url, SubmissionListResponse)
 
     def get_id_title_map(self) -> IdTitleMap:
         """Get id/title mappings using the async HTTP implementation."""
@@ -403,17 +400,10 @@ class LeetcodeClient:
         url: str = "https://leetcode.com/api/problems/all/"
 
         id_title_map: IdTitleMap = IdTitleMap()
-        response = await self._request_json("GET", url)
-        stat_status_pairs = self._require_list(response, "stat_status_pairs", "problem list")
-        for stat in stat_status_pairs:
-            if not isinstance(stat, dict) or not isinstance(stat.get("stat"), dict):
-                continue
-            stat_data = stat["stat"]
-            frontend_id = stat_data.get("frontend_question_id")
-            title_slug = stat_data.get("question__title_slug")
-            if frontend_id is not None and isinstance(title_slug, str):
-                id_title_map.id_to_title[int(frontend_id)] = title_slug
-                id_title_map.title_to_id[title_slug] = int(frontend_id)
+        response = await self._request_json("GET", url, ProblemListResponse)
+        for pair in response.stat_status_pairs:
+            id_title_map.id_to_title[pair.stat.frontend_question_id] = pair.stat.question_title_slug
+            id_title_map.title_to_id[pair.stat.question_title_slug] = pair.stat.frontend_question_id
 
         return id_title_map
 
@@ -421,9 +411,10 @@ class LeetcodeClient:
         self,
         method: str,
         url: str,
+        model_type: type[ResponseModel],
         *,
-        json_body: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+        json_body: BaseModel | None = None,
+    ) -> ResponseModel:
         """Send an authenticated LeetCode request and decode its JSON response."""
         async with httpx.AsyncClient(
             headers=self.get_headers(),
@@ -432,7 +423,12 @@ class LeetcodeClient:
             follow_redirects=True,
         ) as client:
             try:
-                response = await client.request(method, url, json=json_body)
+                body = (
+                    json_body.model_dump(mode="json", by_alias=True, exclude_none=True)
+                    if json_body
+                    else None
+                )
+                response = await client.request(method, url, json=body)
                 response.raise_for_status()
                 payload = response.json()
             except httpx.HTTPStatusError as e:
@@ -444,60 +440,37 @@ class LeetcodeClient:
             except ValueError as e:
                 raise LeetcodeAPIError(f"LeetCode returned a non-JSON response: {url}") from e
 
-        if not isinstance(payload, dict):
-            raise LeetcodeAPIError(f"LeetCode returned unexpected JSON for {url}")
-        return payload
+        try:
+            return model_type.model_validate(payload)
+        except ValidationError as e:
+            raise LeetcodeAPIError(f"LeetCode returned unexpected JSON for {url}: {e}") from e
 
-    def _run_async(self, coroutine: Any) -> Any:
+    def _run_async(self, coroutine: Coroutine[Any, Any, Any]) -> Any:
         """Run an async client method from synchronous Click commands."""
         try:
             asyncio.get_running_loop()
         except RuntimeError:
             return asyncio.run(coroutine)
+        coroutine.close()
         raise LeetcodeAPIError("Cannot call synchronous LeetCode APIs from an active event loop.")
 
-    def _get_question_payload(self, response: dict[str, Any], title_slug: str) -> dict[str, Any]:
+    def _get_question_payload(
+        self,
+        response: QuestionDataResponse,
+        title_slug: str,
+    ) -> QuestionPayload:
         """Validate and return the question payload from GraphQL."""
-        data = response.get("data")
-        if not isinstance(data, dict):
-            raise LeetcodeAPIError("LeetCode questionData response did not include data.")
-        question = data.get("question")
-        if not isinstance(question, dict):
+        question = response.data.question
+        if question is None:
             raise LeetcodeAPIError(f'LeetCode could not find question "{title_slug}".')
         return question
 
-    def _get_code_snippet(self, question: dict[str, Any], language: str) -> str:
+    def _get_code_snippet(self, question: QuestionPayload, language: str) -> str:
         """Return the LeetCode starter code for a language."""
-        snippets = self._require_list(question, "codeSnippets", "questionData.question")
-        for snippet in snippets:
-            if not isinstance(snippet, dict):
-                continue
-            if snippet.get("langSlug") == language and isinstance(snippet.get("code"), str):
-                return snippet["code"]
+        for snippet in question.code_snippets:
+            if snippet.lang_slug == language:
+                return snippet.code
         raise LeetcodeAPIError(f'LeetCode did not return a "{language}" code snippet.')
-
-    def _require_str(self, payload: dict[str, Any], key: str, context: str) -> str:
-        """Return a required string field from a LeetCode payload."""
-        value = payload.get(key)
-        if not isinstance(value, str):
-            raise LeetcodeAPIError(f"LeetCode {context} response is missing string field {key}.")
-        return value
-
-    def _require_int(self, payload: dict[str, Any], key: str, context: str) -> int:
-        """Return a required integer-like field from a LeetCode payload."""
-        value = payload.get(key)
-        if isinstance(value, int):
-            return value
-        if isinstance(value, str) and value.isdigit():
-            return int(value)
-        raise LeetcodeAPIError(f"LeetCode {context} response is missing integer field {key}.")
-
-    def _require_list(self, payload: dict[str, Any], key: str, context: str) -> list[Any]:
-        """Return a required list field from a LeetCode payload."""
-        value = payload.get(key)
-        if not isinstance(value, list):
-            raise LeetcodeAPIError(f"LeetCode {context} response is missing list field {key}.")
-        return value
 
     def _get_leetcode_cookies(self, cookie_jar: CookieJar) -> list[Cookie]:
         """Return browser cookies scoped to LeetCode."""
@@ -517,8 +490,3 @@ class LeetcodeClient:
     def _build_cookie_header(self, cookies: list[Cookie]) -> str:
         """Build a Cookie header from browser cookies without a profile-page request."""
         return "; ".join(f"{cookie.name}={cookie.value}" for cookie in cookies if cookie.value)
-
-
-if __name__ == "__main__":
-    lc = LeetcodeClient()
-    print(lc.get_question_data(1848, "minimum-distance-to-the-target-element", "python"))

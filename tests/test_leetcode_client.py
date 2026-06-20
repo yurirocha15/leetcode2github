@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from leet2git.leetcode_client import LeetcodeAPIError, LeetcodeAuthError, LeetcodeClient
+from leet2git.leetcode_models import LatestSubmissionResponse
 
 
 def cookie(name: str, value: str, domain: str) -> Cookie:
@@ -157,6 +158,17 @@ def test_async_scrap_question_data_posts_current_graphql_shape():
                         "questionId": "1",
                         "title": "Two Sum",
                         "titleSlug": "two-sum",
+                        "content": "<p>desc</p>",
+                        "difficulty": "Easy",
+                        "exampleTestcases": "[1]\n1",
+                        "sampleTestCase": "[1]\n1",
+                        "topicTags": [],
+                        "codeSnippets": [
+                            {
+                                "langSlug": "python3",
+                                "code": "class Solution:\n    def twoSum(self):\n",
+                            }
+                        ],
                     }
                 }
             },
@@ -166,7 +178,8 @@ def test_async_scrap_question_data_posts_current_graphql_shape():
 
     response = asyncio.run(client.async_scrap_question_data("two-sum"))
 
-    assert response["data"]["question"]["questionId"] == "1"
+    assert response.data.question
+    assert response.data.question.question_id == "1"
 
 
 def test_async_get_id_title_map_parses_problem_list():
@@ -245,14 +258,18 @@ def test_request_json_wraps_http_errors():
     client = make_client(lambda _: httpx.Response(403, json={"error": "forbidden"}))
 
     with pytest.raises(LeetcodeAPIError, match="HTTP 403"):
-        asyncio.run(client._request_json("GET", "https://leetcode.com/api/private"))
+        asyncio.run(
+            client._request_json("GET", "https://leetcode.com/api/private", LatestSubmissionResponse)
+        )
 
 
 def test_request_json_rejects_non_json_response():
     client = make_client(lambda _: httpx.Response(200, text="<html></html>"))
 
     with pytest.raises(LeetcodeAPIError, match="non-JSON"):
-        asyncio.run(client._request_json("GET", "https://leetcode.com/api/private"))
+        asyncio.run(
+            client._request_json("GET", "https://leetcode.com/api/private", LatestSubmissionResponse)
+        )
 
 
 def test_latest_submission_requires_code_field():
@@ -260,6 +277,33 @@ def test_latest_submission_requires_code_field():
 
     with pytest.raises(LeetcodeAPIError, match="code"):
         asyncio.run(client.async_get_latest_submission("1", "python3"))
+
+
+def test_get_latest_submission_propagates_api_errors():
+    client = make_client(lambda _: httpx.Response(200, json={}))
+
+    with pytest.raises(LeetcodeAPIError, match="code"):
+        client.get_latest_submission("1", "python3")
+
+
+def test_sync_wrapper_closes_coroutines_inside_running_event_loop():
+    client = make_client(lambda _: httpx.Response(200, json={}))
+
+    class FakeCoroutine:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    async def run_in_loop():
+        fake_coroutine = FakeCoroutine()
+        with pytest.raises(LeetcodeAPIError, match="active event loop"):
+            client._run_async(fake_coroutine)
+        return fake_coroutine
+
+    fake_coroutine = asyncio.run(run_in_loop())
+
+    assert fake_coroutine.closed is True
 
 
 def test_submission_list_requires_expected_shape():

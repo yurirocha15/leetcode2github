@@ -14,7 +14,7 @@ import click
 from click.core import Context
 from click.exceptions import Abort
 
-from leet2git.config_manager import ConfigManager
+from leet2git.config_manager import ConfigManager, ConfigOverrides
 from leet2git.file_handler import create_file_handler, generate_files
 from leet2git.leetcode_client import LeetcodeAPIError, LeetcodeAuthError, LeetcodeClient
 from leet2git.my_utils import (
@@ -58,11 +58,11 @@ def leet2git(
         language (str): the programming language
     """
     cm = ConfigManager()
-    override_config = {}
+    override_config = ConfigOverrides()
     if language:
-        override_config["language"] = language
+        override_config.language = language
     if source_repository:
-        override_config["source_path"] = source_repository
+        override_config.source_path = source_repository
     cm.load_config(override_config)
     ctx.obj = cm
 
@@ -132,7 +132,7 @@ def submit(cm: ConfigManager, question_id: int):
         title_slug = (
             question_data.title_slug if question_data.title_slug else qdb.get_title_from_id(question_id)
         )
-        lc.submit_question(code, question_data.internal_id, title_slug, cm.config["language"])
+        lc.submit_question(code, question_data.internal_id, title_slug, cm.config.language)
     except (LeetcodeAPIError, LeetcodeAuthError) as e:
         click.secho(str(e), fg="red")
 
@@ -167,7 +167,7 @@ def run(cm: ConfigManager, question_id: int):
             code,
             question_data.internal_id,
             title_slug,
-            cm.config["language"],
+            cm.config.language,
             True,
             raw_inputs,
         )
@@ -195,11 +195,11 @@ def import_all(cm: ConfigManager):
             manager.start(mgr_init)
             ret_dict = manager.dict()
             submissions = lc.get_submission_list(last_key, offset)
-            for submission in submissions["submissions_dump"]:
-                qid: int = get_question_id(submission["title_slug"], qdb, lc)
+            for submission in submissions.submissions_dump:
+                qid: int = get_question_id(submission.title_slug, qdb, lc)
                 if (
-                    submission["status_display"] == "Accepted"
-                    and submission["lang"] == cm.config["language"]
+                    submission.status_display == "Accepted"
+                    and submission.lang == cm.config.language
                     and not qdb.check_if_exists(qid)
                 ):
                     # pre-store the question
@@ -210,11 +210,11 @@ def import_all(cm: ConfigManager):
                         args=(
                             ret_dict,
                             qid,
-                            submission["title_slug"],
+                            submission.title_slug,
                             lc,
-                            submission["timestamp"],
+                            submission.timestamp,
                             cm.config,
-                            submission["code"],
+                            submission.code,
                         ),
                     )
                     jobs.append(p)
@@ -222,8 +222,8 @@ def import_all(cm: ConfigManager):
 
             imported_cnt += wait_to_finish_download(jobs, ret_dict, qdb)
 
-            has_next = submissions["has_next"]
-            last_key = submissions["last_key"]
+            has_next = submissions.has_next
+            last_key = submissions.last_key
             offset += 20
             qdb.save()
     except KeyboardInterrupt:
@@ -257,8 +257,9 @@ def delete(cm: ConfigManager, question_id: int):
     if qdb.check_if_exists(question_id):
         data = qdb.get_data()[question_id]
         try:
-            os.remove(data.file_path)
-            os.remove(data.test_file_path)
+            os.remove(os.path.join(cm.config.source_path, data.file_path))
+            if data.test_file_path:
+                os.remove(os.path.join(cm.config.source_path, data.test_file_path))
         except FileNotFoundError as e:
             click.secho(e.args)
         qdb.delete_question(question_id)
@@ -290,9 +291,9 @@ def init(cm: ConfigManager, source_repository: str, language: str, create_repo: 
     reset_config(cm, source_repository, language, load_old=False)
     cm.load_config()
     if create_repo:
-        data = QuestionData(language=cm.config["language"])
+        data = QuestionData(language=cm.config.language)
         file_handler = create_file_handler(data, cm.config)
-        file_handler.generate_repo(cm.config["source_path"])
+        file_handler.generate_repo(cm.config.source_path)
 
 
 @leet2git.command()
@@ -319,15 +320,15 @@ def reset(cm: ConfigManager, source_repository: str, language: str, soft: bool):
         try:
             click.confirm(
                 f"This will delete EVERY solution and test file inside \
-                    the {cm.config['source_path']} folder. \
+                    the {cm.config.source_path} folder. \
                      Still want to proceed?",
                 abort=True,
             )
         except Abort:
             return
 
-        file_list = glob.glob(os.path.join(cm.config["source_path"], "src", "leetcode_*")) + glob.glob(
-            os.path.join(cm.config["source_path"], "tests", "test_*")
+        file_list = glob.glob(os.path.join(cm.config.source_path, "src", "leetcode_*")) + glob.glob(
+            os.path.join(cm.config.source_path, "tests", "test_*")
         )
 
         for file in file_list:
@@ -348,9 +349,9 @@ def reset(cm: ConfigManager, source_repository: str, language: str, soft: bool):
     qdb.reset()
 
     if not soft:
-        data = QuestionData(language=cm.config["language"])
+        data = QuestionData(language=cm.config.language)
         file_handler = create_file_handler(data, cm.config)
-        file_handler.generate_repo(cm.config["source_path"])
+        file_handler.generate_repo(cm.config.source_path)
 
 
 if __name__ == "__main__":
