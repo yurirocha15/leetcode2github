@@ -4,7 +4,7 @@ Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
 
-import json
+import asyncio
 import os
 import platform
 import re
@@ -14,9 +14,9 @@ from typing import Any
 
 import browser_cookie3
 import click
+import httpx
 import requests
 from bs4 import BeautifulSoup
-from requests.models import Response
 
 from leet2git.question_db import IdTitleMap, QuestionData
 
@@ -24,13 +24,20 @@ from leet2git.question_db import IdTitleMap, QuestionData
 class LeetcodeClient:
     """Handles getting data from leetcode"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        transport: httpx.AsyncBaseTransport | None = None,
+        timeout: float = 30.0,
+    ):
         os_name = platform.system()
         if os_name in ["Linux", "Darwin"]:
             self.divider = "/"
         elif os_name == "Windows":
             self.divider = "\\"
 
+        self._transport = transport
+        self._timeout = timeout
         self.cookies, self.csrftoken = self.get_cookies()
 
     def get_cookies(self) -> tuple[str, str]:
@@ -164,7 +171,11 @@ class LeetcodeClient:
 
         return data, True
 
-    def scrap_question_data(self, question_name: str) -> dict[str, dict[str, Any]]:
+    def scrap_question_data(self, question_name: str) -> dict[str, Any]:
+        """Query question information using the async HTTP implementation."""
+        return asyncio.run(self.async_scrap_question_data(question_name))
+
+    async def async_scrap_question_data(self, question_name: str) -> dict[str, Any]:
         """Query a question information
 
         Args:
@@ -175,52 +186,49 @@ class LeetcodeClient:
         """
         url: str = "https://leetcode.com/graphql"
 
-        payload: str = json.dumps(
-            {
-                "operationName": "questionData",
-                "variables": {"titleSlug": question_name},
-                "query": "query questionData($titleSlug: String) {\n  question(titleSlug: $titleSlug) {\
-                    \n    questionId\
-                    \n    questionFrontendId\
-                    \n    title\
-                    \n    titleSlug\
-                    \n    content\
-                    \n    isPaidOnly\
-                    \n    difficulty\
-                    \n    likes\
-                    \n    dislikes\
-                    \n    exampleTestcases\
-                    \n    topicTags {\
-                    \n      name\
-                    \n      slug\
-                    \n      translatedName\
-                    \n      __typename\
-                    \n    }\
-                    \n    codeSnippets {\
-                    \n      lang\
-                    \n      langSlug\
-                    \n      code\
-                    \n      __typename\
-                    \n    }\
-                    \n    stats\
-                    \n    hints\
-                    \n    solution {\
-                    \n      id\
-                    \n      canSeeDetail\
-                    \n      paidOnly\
-                    \n      hasVideoSolution\
-                    \n      paidOnlyVideo\
-                    \n      __typename\
-                    \n    }\
-                    \n    status\
-                    \n    sampleTestCase\
-                    \n    metaData\
-                    \n    __typename\n  }\n}\n",
-            }
-        )
+        payload = {
+            "operationName": "questionData",
+            "variables": {"titleSlug": question_name},
+            "query": "query questionData($titleSlug: String) {\n  question(titleSlug: $titleSlug) {\
+                \n    questionId\
+                \n    questionFrontendId\
+                \n    title\
+                \n    titleSlug\
+                \n    content\
+                \n    isPaidOnly\
+                \n    difficulty\
+                \n    likes\
+                \n    dislikes\
+                \n    exampleTestcases\
+                \n    topicTags {\
+                \n      name\
+                \n      slug\
+                \n      translatedName\
+                \n      __typename\
+                \n    }\
+                \n    codeSnippets {\
+                \n      lang\
+                \n      langSlug\
+                \n      code\
+                \n      __typename\
+                \n    }\
+                \n    stats\
+                \n    hints\
+                \n    solution {\
+                \n      id\
+                \n      canSeeDetail\
+                \n      paidOnly\
+                \n      hasVideoSolution\
+                \n      paidOnlyVideo\
+                \n      __typename\
+                \n    }\
+                \n    status\
+                \n    sampleTestCase\
+                \n    metaData\
+                \n    __typename\n  }\n}\n",
+        }
 
-        response: Response = requests.request("POST", url, headers=self.get_headers(), data=payload)
-        return json.loads(response.text)
+        return await self._request_json("POST", url, json_body=payload)
 
     def get_latest_submission(self, qid: str, language: str) -> str:
         """Get the latest submission for a question
@@ -233,17 +241,18 @@ class LeetcodeClient:
         Returns:
             str: the submitted code
         """
-        url: str = f"https://leetcode.com/submissions/latest/?qid={qid}&lang={language}"
-
-        payload: str = ""
         raw_code: str = ""
         try:
-            response: Response = requests.request("GET", url, headers=self.get_headers(), data=payload)
-            raw_code = json.loads(response.text)["code"]
+            raw_code = asyncio.run(self.async_get_latest_submission(qid, language))
         except RuntimeError as e:
             click.secho(e.args, fg="red")
             click.secho(traceback.format_exc())
         return raw_code
+
+    async def async_get_latest_submission(self, qid: str, language: str) -> str:
+        """Get the latest submission for a question asynchronously."""
+        url: str = f"https://leetcode.com/submissions/latest/?qid={qid}&lang={language}"
+        return (await self._request_json("GET", url))["code"]
 
     def submit_question(
         self,
@@ -258,13 +267,26 @@ class LeetcodeClient:
 
         Args:
             code (str): the code which will be submitted
-            internal_id (str): the question "questionId". (different from "frontend_id")
+            internal_id (int): the question "questionId". (different from "frontend_id")
             title_slug (str): the question title slug
             language (str): the language of the code
             is_test (bool): if true, do not submit, only test on leetcode servers
             test_input (str): input to test. Only used if is_test is True
         """
+        asyncio.run(
+            self.async_submit_question(code, internal_id, title_slug, language, is_test, test_input)
+        )
 
+    async def async_submit_question(
+        self,
+        code: str,
+        internal_id: int,
+        title_slug: str,
+        language: str,
+        is_test: bool = False,
+        test_input: str = "",
+    ) -> None:
+        """Submit or test a question asynchronously."""
         url: str = f"https://leetcode.com/problems/{title_slug}/" + (
             "interpret_solution/" if is_test else "submit/"
         )
@@ -278,20 +300,18 @@ class LeetcodeClient:
             payload_dict["data_input"] = test_input
             payload_dict["judge_type"] = "large"
 
-        payload: str = json.dumps(payload_dict)
-        response: Response = requests.request("POST", url, headers=self.get_headers(), data=payload)
         submission_field: str = "interpret_id" if is_test else "submission_id"
-        submission_id: int = json.loads(response.text)[submission_field]
+        submission_id: int = (await self._request_json("POST", url, json_body=payload_dict))[
+            submission_field
+        ]
         click.secho("Waiting for submission results...")
         url = f"https://leetcode.com/submissions/detail/{submission_id}/check/"
 
-        payload = ""
         status: str = ""
         while status != "SUCCESS":
-            response = requests.request("GET", url, headers=self.get_headers(), data=payload)
-            submission_result: dict[str, Any] = json.loads(response.text)
+            submission_result: dict[str, Any] = await self._request_json("GET", url)
             status = submission_result["state"]
-            time.sleep(1)
+            await asyncio.sleep(1)
 
         click.clear()
         click.secho(f"Result: {submission_result['status_msg']}")
@@ -319,6 +339,10 @@ class LeetcodeClient:
             click.secho(f"Compile Error: {submission_result['compile_error']}")
 
     def get_submission_list(self, last_key: str = "", offset: int = 0) -> dict[str, Any]:
+        """Get a list with 20 submissions using the async HTTP implementation."""
+        return asyncio.run(self.async_get_submission_list(last_key, offset))
+
+    async def async_get_submission_list(self, last_key: str = "", offset: int = 0) -> dict[str, Any]:
         """Get a list with 20 submissions
 
         Args:
@@ -330,13 +354,13 @@ class LeetcodeClient:
         """
         url: str = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey={last_key}"
 
-        payload: str = ""
-
-        response: Response = requests.request("GET", url, headers=self.get_headers(), data=payload)
-
-        return json.loads(response.text)
+        return await self._request_json("GET", url)
 
     def get_id_title_map(self) -> IdTitleMap:
+        """Get id/title mappings using the async HTTP implementation."""
+        return asyncio.run(self.async_get_id_title_map())
+
+    async def async_get_id_title_map(self) -> IdTitleMap:
         """Get a dictionary that maps the id to the question title slug
 
         Returns:
@@ -344,12 +368,9 @@ class LeetcodeClient:
         """
         url: str = "https://leetcode.com/api/problems/all/"
 
-        payload: str = ""
-
-        response: Response = requests.request("GET", url, headers=self.get_headers(), data=payload)
-
         id_title_map: IdTitleMap = IdTitleMap()
-        for stat in json.loads(response.text)["stat_status_pairs"]:
+        response = await self._request_json("GET", url)
+        for stat in response["stat_status_pairs"]:
             if "frontend_question_id" in stat["stat"] and "question__title_slug" in stat["stat"]:
                 id_title_map.id_to_title[int(stat["stat"]["frontend_question_id"])] = stat["stat"][
                     "question__title_slug"
@@ -359,6 +380,24 @@ class LeetcodeClient:
                 )
 
         return id_title_map
+
+    async def _request_json(
+        self,
+        method: str,
+        url: str,
+        *,
+        json_body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Send an authenticated LeetCode request and decode its JSON response."""
+        async with httpx.AsyncClient(
+            headers=self.get_headers(),
+            timeout=self._timeout,
+            transport=self._transport,
+            follow_redirects=True,
+        ) as client:
+            response = await client.request(method, url, json=json_body)
+            response.raise_for_status()
+            return response.json()
 
 
 if __name__ == "__main__":
