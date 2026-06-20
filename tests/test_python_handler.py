@@ -76,6 +76,65 @@ def test_generate_source_creates_python_file_without_tests_when_disabled(tmp_pat
     assert 'if __name__ == "__main__"' not in content
 
 
+def test_generate_source_adds_test_entrypoint_when_enabled(tmp_path, monkeypatch):
+    question = QuestionData(
+        id=1,
+        title="Two Sum",
+        difficulty="Easy",
+        url="https://leetcode.com/problems/two-sum",
+        file_path="src/leetcode_1_two_sum",
+        language="python3",
+        question_template="class Solution:\n    def twoSum(self, nums, target):\n",
+    )
+    handler = make_handler(question, AppConfig(source_path=str(tmp_path)))
+    monkeypatch.setattr("leet2git.python_handler.fix_files", lambda _: None)
+    monkeypatch.setattr(handler, "run_formatter", lambda _: None)
+
+    file_path = handler.generate_source()
+
+    content = (tmp_path / file_path).read_text(encoding="UTF8")
+    assert 'if __name__ == "__main__"' in content
+    assert "pytest.main([os.path.join('tests', 'test_1.py')])" in content
+
+
+def test_generate_tests_creates_single_function_pytest_file(tmp_path, monkeypatch):
+    question = QuestionData(
+        id=1,
+        title="Two Sum",
+        file_path="src/leetcode_1_two_sum.py",
+        language="python3",
+        function_name=["twoSum"],
+        inputs=["[2,7,11,15], 9", "[3,2,4], 6"],
+        outputs=["[0, 1]", "[1, 2]"],
+    )
+    handler = make_handler(question, AppConfig(source_path=str(tmp_path)))
+    monkeypatch.setattr(handler, "run_formatter", lambda _: None)
+
+    test_file_path = handler.generate_tests()
+
+    content = (tmp_path / test_file_path).read_text(encoding="UTF8")
+    assert test_file_path == "tests/test_1.py"
+    assert "from src.leetcode_1_two_sum import Solution" in content
+    assert "twoSum([2,7,11,15], 9) == [0, 1]" in content
+    assert "twoSum([3,2,4], 6) == [1, 2]" in content
+
+
+def test_generate_tests_requires_function_name(tmp_path):
+    handler = make_handler(
+        QuestionData(
+            id=1,
+            file_path="src/leetcode_1_two_sum.py",
+            language="python3",
+            inputs=["[2,7,11,15], 9"],
+            outputs=["[0, 1]"],
+        ),
+        AppConfig(source_path=str(tmp_path)),
+    )
+
+    with pytest.raises(ValueError, match="No function name"):
+        handler.generate_tests()
+
+
 def test_generate_submission_file_strips_generated_main_block(tmp_path):
     question = QuestionData(file_path="src/leetcode_1_two_sum.py")
     full_path = tmp_path / question.file_path

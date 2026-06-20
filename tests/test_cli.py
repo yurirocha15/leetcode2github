@@ -3,6 +3,7 @@ from click.testing import CliRunner
 from leet2git.config_manager import AppConfig
 from leet2git.leet2git import leet2git
 from leet2git.leetcode_client import LeetcodeAPIError, LeetcodeAuthError
+from leet2git.leetcode_models import SubmissionListResponse
 from leet2git.question_db import QuestionData
 
 
@@ -123,3 +124,200 @@ def test_delete_removes_files_from_configured_source_path(monkeypatch, tmp_path)
     assert result.exit_code == 0
     assert not source_file.exists()
     assert "removed" in result.output
+
+
+def test_run_submits_generated_code_with_question_inputs(monkeypatch, tmp_path):
+    class ConfigManagerWithSource(FakeConfigManager):
+        def __init__(self):
+            self.config = AppConfig(language="python3", source_path=str(tmp_path))
+
+    class RunQuestionDB(EmptyQuestionDB):
+        def get_question(self, question_id):
+            return QuestionData(
+                id=question_id,
+                internal_id=1,
+                inputs=["[2,7,11,15], 9", "[3,2,4], 6"],
+            )
+
+        def get_title_from_id(self, question_id):
+            return "two-sum"
+
+    class FakeHandler:
+        def generate_submission_file(self):
+            return "class Solution: ..."
+
+    class FakeClient:
+        calls = []
+
+        def submit_question(self, *args):
+            self.calls.append(args)
+
+    monkeypatch.setattr("leet2git.leet2git.ConfigManager", ConfigManagerWithSource)
+    monkeypatch.setattr("leet2git.leet2git.QuestionDB", RunQuestionDB)
+    monkeypatch.setattr("leet2git.leet2git.create_file_handler", lambda *_: FakeHandler())
+    monkeypatch.setattr("leet2git.leet2git.LeetcodeClient", FakeClient)
+
+    result = CliRunner().invoke(leet2git, ["run", "1"])
+
+    assert result.exit_code == 0
+    assert FakeClient.calls == [
+        (
+            "class Solution: ...",
+            1,
+            "two-sum",
+            "python3",
+            True,
+            "[2,7,11,15]\n9\n[3,2,4]\n6",
+        )
+    ]
+
+
+def test_import_all_filters_pages_and_updates_readme(monkeypatch, tmp_path):
+    class ConfigManagerWithSource(FakeConfigManager):
+        def __init__(self):
+            self.config = AppConfig(language="python3", source_path=str(tmp_path))
+
+    class ImportQuestionDB(EmptyQuestionDB):
+        instances = []
+
+        def __init__(self, config):
+            super().__init__(config)
+            self.questions = {}
+            self.save_count = 0
+            self.instances.append(self)
+
+        def add_question(self, question):
+            self.questions[question.id] = question
+
+        def check_if_exists(self, question_id):
+            return question_id in self.questions
+
+        def save(self):
+            self.save_count += 1
+
+        def get_sorted_list(self, sort_by):
+            return sorted(self.questions.values(), key=lambda question: question.id)
+
+    class FakeClient:
+        def __init__(self):
+            self.pages = [
+                SubmissionListResponse.model_validate(
+                    {
+                        "submissions_dump": [
+                            {
+                                "title_slug": "two-sum",
+                                "status_display": "Accepted",
+                                "lang": "python3",
+                                "timestamp": 10,
+                                "code": "code one",
+                            },
+                            {
+                                "title_slug": "three-sum",
+                                "status_display": "Accepted",
+                                "lang": "java",
+                                "timestamp": 20,
+                                "code": "code skipped",
+                            },
+                        ],
+                        "has_next": True,
+                        "last_key": "next-page",
+                    }
+                ),
+                SubmissionListResponse.model_validate(
+                    {
+                        "submissions_dump": [
+                            {
+                                "title_slug": "add-two-numbers",
+                                "status_display": "Accepted",
+                                "lang": "python3",
+                                "timestamp": 30,
+                                "code": "code two",
+                            },
+                            {
+                                "title_slug": "median-of-two-sorted-arrays",
+                                "status_display": "Wrong Answer",
+                                "lang": "python3",
+                                "timestamp": 40,
+                                "code": "code skipped",
+                            },
+                        ],
+                        "has_next": False,
+                        "last_key": "",
+                    }
+                ),
+            ]
+
+        def get_submission_list(self, last_key="", offset=0):
+            assert (last_key, offset) in {("", 0), ("next-page", 20)}
+            return self.pages[offset // 20]
+
+    class FakeProcess:
+        def __init__(self, target, args):
+            self.target = target
+            self.args = args
+
+        def start(self):
+            self.target(*self.args)
+
+        def join(self):
+            pass
+
+    class FakeSyncManager:
+        def start(self, initializer=None):
+            if initializer:
+                initializer()
+
+        def dict(self):
+            return {}
+
+        def shutdown(self):
+            pass
+
+    class FakeReadmeHandler:
+        built_lists = []
+
+        def __init__(self, config):
+            self.config = config
+
+        def build_readme(self, question_list):
+            self.built_lists.append(question_list)
+
+    def fake_generate_files(ret_dict, qid, title_slug, lc, timestamp, config, code=""):
+        ret_dict[qid] = QuestionData(
+            id=qid,
+            title=title_slug,
+            title_slug=title_slug,
+            creation_time=timestamp,
+            raw_code=code,
+        )
+
+    title_ids = {
+        "two-sum": 1,
+        "three-sum": 15,
+        "add-two-numbers": 2,
+        "median-of-two-sorted-arrays": 4,
+    }
+
+    monkeypatch.setattr("leet2git.leet2git.ConfigManager", ConfigManagerWithSource)
+    monkeypatch.setattr("leet2git.leet2git.QuestionDB", ImportQuestionDB)
+    monkeypatch.setattr("leet2git.leet2git.LeetcodeClient", FakeClient)
+    monkeypatch.setattr("leet2git.leet2git.Process", FakeProcess)
+    monkeypatch.setattr("leet2git.leet2git.SyncManager", FakeSyncManager)
+    monkeypatch.setattr("leet2git.leet2git.ReadmeHandler", FakeReadmeHandler)
+    monkeypatch.setattr("leet2git.leet2git.generate_files", fake_generate_files)
+    monkeypatch.setattr(
+        "leet2git.leet2git.get_question_id",
+        lambda title_slug, qdb, lc: title_ids[title_slug],
+    )
+    monkeypatch.setattr("leet2git.leet2git.time.sleep", lambda _: None)
+
+    result = CliRunner().invoke(leet2git, ["import-all"])
+
+    imported_db = ImportQuestionDB.instances[-1]
+    assert result.exit_code == 0
+    assert "In total, 2 questions were imported!" in result.output
+    assert sorted(imported_db.questions) == [1, 2]
+    assert imported_db.questions[1].raw_code == "code one"
+    assert imported_db.questions[2].raw_code == "code two"
+    assert imported_db.save_count == 3
+    assert [question.id for question in FakeReadmeHandler.built_lists[-1]] == [1, 2]
