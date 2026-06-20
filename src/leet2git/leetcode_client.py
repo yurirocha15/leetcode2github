@@ -9,7 +9,6 @@ import os
 import platform
 import re
 import time
-import traceback
 from http.cookiejar import Cookie, CookieJar
 from typing import Any
 
@@ -29,6 +28,10 @@ USER_AGENT = (
 
 class LeetcodeAuthError(RuntimeError):
     """Raised when local browser cookies cannot authenticate with LeetCode."""
+
+
+class LeetcodeAPIError(RuntimeError):
+    """Raised when LeetCode returns an unexpected response or request failure."""
 
 
 class LeetcodeClient:
@@ -116,34 +119,31 @@ class LeetcodeClient:
         """
 
         leetcode_question_data = self.scrap_question_data(title_slug)
+        question = self._get_question_payload(leetcode_question_data, title_slug)
 
         data = QuestionData(id=question_id, creation_time=time.time())
-        data.internal_id = int(leetcode_question_data["data"]["question"]["questionId"])
-        data.title = leetcode_question_data["data"]["question"]["title"]
-        data.title_slug = leetcode_question_data["data"]["question"]["titleSlug"]
-        data.url = (
-            "https://leetcode.com/problems/" + leetcode_question_data["data"]["question"]["titleSlug"]
-        )
-        data.difficulty = leetcode_question_data["data"]["question"]["difficulty"]
-        data.question_template = next(
-            code["code"]
-            for code in leetcode_question_data["data"]["question"]["codeSnippets"]
-            if code["langSlug"] == language
-        )
-        data.categories = leetcode_question_data["data"]["question"]["topicTags"]
+        data.internal_id = int(self._require_str(question, "questionId", "questionData.question"))
+        data.title = self._require_str(question, "title", "questionData.question")
+        data.title_slug = self._require_str(question, "titleSlug", "questionData.question")
+        data.url = "https://leetcode.com/problems/" + data.title_slug
+        data.difficulty = self._require_str(question, "difficulty", "questionData.question")
+        data.question_template = self._get_code_snippet(question, language)
+        data.categories = self._require_list(question, "topicTags", "questionData.question")
 
         # fix #24. 10<sup>5</sup> becomes 10^5
         soup = BeautifulSoup(
             re.sub(
                 r"(?:\<sup\>)(\d+)(?:\<\/sup\>)",
                 r"^\1",
-                leetcode_question_data["data"]["question"]["content"],
+                self._require_str(question, "content", "questionData.question"),
             ),
             features="html.parser",
         )
         data.description = soup.get_text().replace("\r\n", "\n").split("\n")
-        num_of_inputs = len(leetcode_question_data["data"]["question"]["sampleTestCase"].split("\n"))
-        inputs = leetcode_question_data["data"]["question"]["exampleTestcases"].split("\n")
+        sample_test_case = self._require_str(question, "sampleTestCase", "questionData.question")
+        example_test_cases = self._require_str(question, "exampleTestcases", "questionData.question")
+        num_of_inputs = len(sample_test_case.split("\n"))
+        inputs = example_test_cases.split("\n")
         data.inputs = [
             ", ".join(inputs[i : i + num_of_inputs]) for i in range(0, len(inputs), num_of_inputs)
         ]
@@ -176,8 +176,7 @@ class LeetcodeClient:
 
         data.file_path = os.path.join(
             "src",
-            f"leetcode_{data.id}_"
-            + leetcode_question_data["data"]["question"]["titleSlug"].replace("-", "_"),
+            f"leetcode_{data.id}_" + data.title_slug.replace("-", "_"),
         )
 
         if code:
@@ -187,7 +186,7 @@ class LeetcodeClient:
 
     def scrap_question_data(self, question_name: str) -> dict[str, Any]:
         """Query question information using the async HTTP implementation."""
-        return asyncio.run(self.async_scrap_question_data(question_name))
+        return self._run_async(self.async_scrap_question_data(question_name))
 
     async def async_scrap_question_data(self, question_name: str) -> dict[str, Any]:
         """Query a question information
@@ -257,16 +256,15 @@ class LeetcodeClient:
         """
         raw_code: str = ""
         try:
-            raw_code = asyncio.run(self.async_get_latest_submission(qid, language))
-        except RuntimeError as e:
+            raw_code = self._run_async(self.async_get_latest_submission(qid, language))
+        except LeetcodeAPIError as e:
             click.secho(e.args, fg="red")
-            click.secho(traceback.format_exc())
         return raw_code
 
     async def async_get_latest_submission(self, qid: str, language: str) -> str:
         """Get the latest submission for a question asynchronously."""
         url: str = f"https://leetcode.com/submissions/latest/?qid={qid}&lang={language}"
-        return (await self._request_json("GET", url))["code"]
+        return self._require_str(await self._request_json("GET", url), "code", "latest submission")
 
     def submit_question(
         self,
@@ -287,7 +285,7 @@ class LeetcodeClient:
             is_test (bool): if true, do not submit, only test on leetcode servers
             test_input (str): input to test. Only used if is_test is True
         """
-        asyncio.run(
+        self._run_async(
             self.async_submit_question(code, internal_id, title_slug, language, is_test, test_input)
         )
 
@@ -320,46 +318,56 @@ class LeetcodeClient:
             payload_dict["judge_type"] = "large"
 
         submission_field: str = "interpret_id" if is_test else "submission_id"
-        submission_id: int = (await self._request_json("POST", url, json_body=payload_dict))[
-            submission_field
-        ]
+        submission_response = await self._request_json("POST", url, json_body=payload_dict)
+        submission_id = self._require_int(submission_response, submission_field, "submit response")
         click.secho("Waiting for submission results...")
         url = f"https://leetcode.com/submissions/detail/{submission_id}/check/"
 
+        submission_result: dict[str, Any] = {}
         status: str = ""
         while status != "SUCCESS":
-            submission_result: dict[str, Any] = await self._request_json("GET", url)
-            status = submission_result["state"]
+            submission_result = await self._request_json("GET", url)
+            status = self._require_str(submission_result, "state", "submission status")
             await asyncio.sleep(1)
 
         click.clear()
-        click.secho(f"Result: {submission_result['status_msg']}")
-        if submission_result["status_code"] == 10:
+        click.secho(f"Result: {submission_result.get('status_msg', 'Unknown')}")
+        status_code = submission_result.get("status_code")
+        if status_code == 10:
             click.secho(
-                f"Total Runtime: {submission_result['status_runtime']} "
-                + ("" if is_test else f"(Better than {submission_result['runtime_percentile']:.2f}%)")
+                f"Total Runtime: {submission_result.get('status_runtime', 'unknown')} "
+                + (
+                    ""
+                    if is_test
+                    else f"(Better than {float(submission_result.get('runtime_percentile', 0)):.2f}%)"
+                )
             )
             click.secho(
-                f"Total Memory: {submission_result['status_memory']} "
-                + ("" if is_test else f"(Better than {submission_result['memory_percentile']:.2f}%)")
+                f"Total Memory: {submission_result.get('status_memory', 'unknown')} "
+                + (
+                    ""
+                    if is_test
+                    else f"(Better than {float(submission_result.get('memory_percentile', 0)):.2f}%)"
+                )
             )
-        elif submission_result["status_code"] == 11:
-            click.secho(f"Last Input: {submission_result['input_formatted']}")
-            click.secho(f"Expected Output: {submission_result['expected_output']}")
-            click.secho(f"Code Output: {submission_result['code_output']}")
-        elif submission_result["status_code"] == 14:
+        elif status_code == 11:
+            click.secho(f"Last Input: {submission_result.get('input_formatted', 'unknown')}")
+            click.secho(f"Expected Output: {submission_result.get('expected_output', 'unknown')}")
+            click.secho(f"Code Output: {submission_result.get('code_output', 'unknown')}")
+        elif status_code == 14:
             nl = "\n"
-            click.secho(f"Last Input: {submission_result['last_testcase'].replace(nl, ' ')}")
-            click.secho(f"Expected Output: {submission_result['expected_output']}")
-            click.secho(f"Code Output: {submission_result['code_output']}")
-        elif submission_result["status_code"] == 15:
-            click.secho(f"Runtime Error: {submission_result['runtime_error']}")
-        elif submission_result["status_code"] == 20:
-            click.secho(f"Compile Error: {submission_result['compile_error']}")
+            last_testcase = str(submission_result.get("last_testcase", "unknown")).replace(nl, " ")
+            click.secho(f"Last Input: {last_testcase}")
+            click.secho(f"Expected Output: {submission_result.get('expected_output', 'unknown')}")
+            click.secho(f"Code Output: {submission_result.get('code_output', 'unknown')}")
+        elif status_code == 15:
+            click.secho(f"Runtime Error: {submission_result.get('runtime_error', 'unknown')}")
+        elif status_code == 20:
+            click.secho(f"Compile Error: {submission_result.get('compile_error', 'unknown')}")
 
     def get_submission_list(self, last_key: str = "", offset: int = 0) -> dict[str, Any]:
         """Get a list with 20 submissions using the async HTTP implementation."""
-        return asyncio.run(self.async_get_submission_list(last_key, offset))
+        return self._run_async(self.async_get_submission_list(last_key, offset))
 
     async def async_get_submission_list(self, last_key: str = "", offset: int = 0) -> dict[str, Any]:
         """Get a list with 20 submissions
@@ -373,11 +381,18 @@ class LeetcodeClient:
         """
         url: str = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey={last_key}"
 
-        return await self._request_json("GET", url)
+        response = await self._request_json("GET", url)
+        self._require_list(response, "submissions_dump", "submission list")
+        if not isinstance(response.get("has_next"), bool):
+            raise LeetcodeAPIError(
+                "LeetCode submission list response is missing boolean field has_next."
+            )
+        self._require_str(response, "last_key", "submission list")
+        return response
 
     def get_id_title_map(self) -> IdTitleMap:
         """Get id/title mappings using the async HTTP implementation."""
-        return asyncio.run(self.async_get_id_title_map())
+        return self._run_async(self.async_get_id_title_map())
 
     async def async_get_id_title_map(self) -> IdTitleMap:
         """Get a dictionary that maps the id to the question title slug
@@ -389,14 +404,16 @@ class LeetcodeClient:
 
         id_title_map: IdTitleMap = IdTitleMap()
         response = await self._request_json("GET", url)
-        for stat in response["stat_status_pairs"]:
-            if "frontend_question_id" in stat["stat"] and "question__title_slug" in stat["stat"]:
-                id_title_map.id_to_title[int(stat["stat"]["frontend_question_id"])] = stat["stat"][
-                    "question__title_slug"
-                ]
-                id_title_map.title_to_id[stat["stat"]["question__title_slug"]] = int(
-                    stat["stat"]["frontend_question_id"]
-                )
+        stat_status_pairs = self._require_list(response, "stat_status_pairs", "problem list")
+        for stat in stat_status_pairs:
+            if not isinstance(stat, dict) or not isinstance(stat.get("stat"), dict):
+                continue
+            stat_data = stat["stat"]
+            frontend_id = stat_data.get("frontend_question_id")
+            title_slug = stat_data.get("question__title_slug")
+            if frontend_id is not None and isinstance(title_slug, str):
+                id_title_map.id_to_title[int(frontend_id)] = title_slug
+                id_title_map.title_to_id[title_slug] = int(frontend_id)
 
         return id_title_map
 
@@ -414,9 +431,73 @@ class LeetcodeClient:
             transport=self._transport,
             follow_redirects=True,
         ) as client:
-            response = await client.request(method, url, json=json_body)
-            response.raise_for_status()
-            return response.json()
+            try:
+                response = await client.request(method, url, json=json_body)
+                response.raise_for_status()
+                payload = response.json()
+            except httpx.HTTPStatusError as e:
+                raise LeetcodeAPIError(
+                    f"LeetCode request failed with HTTP {e.response.status_code}: {url}"
+                ) from e
+            except httpx.RequestError as e:
+                raise LeetcodeAPIError(f"Could not reach LeetCode: {e}") from e
+            except ValueError as e:
+                raise LeetcodeAPIError(f"LeetCode returned a non-JSON response: {url}") from e
+
+        if not isinstance(payload, dict):
+            raise LeetcodeAPIError(f"LeetCode returned unexpected JSON for {url}")
+        return payload
+
+    def _run_async(self, coroutine: Any) -> Any:
+        """Run an async client method from synchronous Click commands."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coroutine)
+        raise LeetcodeAPIError("Cannot call synchronous LeetCode APIs from an active event loop.")
+
+    def _get_question_payload(self, response: dict[str, Any], title_slug: str) -> dict[str, Any]:
+        """Validate and return the question payload from GraphQL."""
+        data = response.get("data")
+        if not isinstance(data, dict):
+            raise LeetcodeAPIError("LeetCode questionData response did not include data.")
+        question = data.get("question")
+        if not isinstance(question, dict):
+            raise LeetcodeAPIError(f'LeetCode could not find question "{title_slug}".')
+        return question
+
+    def _get_code_snippet(self, question: dict[str, Any], language: str) -> str:
+        """Return the LeetCode starter code for a language."""
+        snippets = self._require_list(question, "codeSnippets", "questionData.question")
+        for snippet in snippets:
+            if not isinstance(snippet, dict):
+                continue
+            if snippet.get("langSlug") == language and isinstance(snippet.get("code"), str):
+                return snippet["code"]
+        raise LeetcodeAPIError(f'LeetCode did not return a "{language}" code snippet.')
+
+    def _require_str(self, payload: dict[str, Any], key: str, context: str) -> str:
+        """Return a required string field from a LeetCode payload."""
+        value = payload.get(key)
+        if not isinstance(value, str):
+            raise LeetcodeAPIError(f"LeetCode {context} response is missing string field {key}.")
+        return value
+
+    def _require_int(self, payload: dict[str, Any], key: str, context: str) -> int:
+        """Return a required integer-like field from a LeetCode payload."""
+        value = payload.get(key)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str) and value.isdigit():
+            return int(value)
+        raise LeetcodeAPIError(f"LeetCode {context} response is missing integer field {key}.")
+
+    def _require_list(self, payload: dict[str, Any], key: str, context: str) -> list[Any]:
+        """Return a required list field from a LeetCode payload."""
+        value = payload.get(key)
+        if not isinstance(value, list):
+            raise LeetcodeAPIError(f"LeetCode {context} response is missing list field {key}.")
+        return value
 
     def _get_leetcode_cookies(self, cookie_jar: CookieJar) -> list[Cookie]:
         """Return browser cookies scoped to LeetCode."""

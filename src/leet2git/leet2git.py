@@ -7,7 +7,6 @@ Authors:
 import glob
 import os
 import time
-import traceback
 from multiprocessing import Process
 from multiprocessing.managers import SyncManager
 
@@ -17,7 +16,7 @@ from click.exceptions import Abort
 
 from leet2git.config_manager import ConfigManager
 from leet2git.file_handler import create_file_handler, generate_files
-from leet2git.leetcode_client import LeetcodeClient
+from leet2git.leetcode_client import LeetcodeAPIError, LeetcodeAuthError, LeetcodeClient
 from leet2git.my_utils import (
     get_question_id,
     mgr_init,
@@ -78,19 +77,25 @@ def get(cm: ConfigManager, question_id: int):
         question_id (int): the question question_id
     """
     qdb: QuestionDB = QuestionDB(cm.config)
-    lc = LeetcodeClient()
     qdb.load()
     if qdb.check_if_exists(question_id):
         click.secho("Question already imported")
         return
 
-    if not qdb.check_if_slug_is_known(question_id):
-        qdb.set_id_title_map(lc.get_id_title_map())
-        qdb.save()
+    try:
+        lc = LeetcodeClient()
+        if not qdb.check_if_slug_is_known(question_id):
+            qdb.set_id_title_map(lc.get_id_title_map())
+            qdb.save()
 
-    # get question data
-    args: dict[int, QuestionData] = {}
-    generate_files(args, question_id, qdb.get_title_from_id(question_id), lc, time.time(), cm.config)
+        # get question data
+        args: dict[int, QuestionData] = {}
+        generate_files(
+            args, question_id, qdb.get_title_from_id(question_id), lc, time.time(), cm.config
+        )
+    except (LeetcodeAPIError, LeetcodeAuthError) as e:
+        click.secho(str(e), fg="red")
+        return
 
     if question_id in args:
         # store data
@@ -114,25 +119,22 @@ def submit(cm: ConfigManager, question_id: int):
     qdb: QuestionDB = QuestionDB(cm.config)
     qdb.load()
     # create submit file
-    if qdb.check_if_exists(question_id):
-        question_data = qdb.get_question(question_id)
-        assert question_data is not None
-        file_handler = create_file_handler(question_data, cm.config)
-        code = file_handler.generate_submission_file()
-
-        lc = LeetcodeClient()
-        try:
-            title_slug = (
-                question_data.title_slug
-                if question_data.title_slug
-                else qdb.get_title_from_id(question_id)
-            )
-            lc.submit_question(code, question_data.internal_id, title_slug, cm.config["language"])
-        except Exception as e:
-            click.secho(e.args, fg="red")
-            click.secho(traceback.format_exc())
-    else:
+    question_data = qdb.get_question(question_id)
+    if not question_data:
         click.secho(f"Could not find the question with id {question_id}")
+        return
+
+    file_handler = create_file_handler(question_data, cm.config)
+    code = file_handler.generate_submission_file()
+
+    try:
+        lc = LeetcodeClient()
+        title_slug = (
+            question_data.title_slug if question_data.title_slug else qdb.get_title_from_id(question_id)
+        )
+        lc.submit_question(code, question_data.internal_id, title_slug, cm.config["language"])
+    except (LeetcodeAPIError, LeetcodeAuthError) as e:
+        click.secho(str(e), fg="red")
 
 
 @leet2git.command()
@@ -147,33 +149,30 @@ def run(cm: ConfigManager, question_id: int):
     qdb: QuestionDB = QuestionDB(cm.config)
     qdb.load()
     # create test file
-    if qdb.check_if_exists(question_id):
-        question_data = qdb.get_question(question_id)
-        assert question_data is not None
-        file_handler = create_file_handler(question_data, cm.config)
-        code = file_handler.generate_submission_file()
-
-        lc = LeetcodeClient()
-        try:
-            title_slug = (
-                question_data.title_slug
-                if question_data.title_slug
-                else qdb.get_title_from_id(question_id)
-            )
-            raw_inputs = "\n".join(["\n".join(i.split(", ")) for i in question_data.inputs])
-            lc.submit_question(
-                code,
-                question_data.internal_id,
-                title_slug,
-                cm.config["language"],
-                True,
-                raw_inputs,
-            )
-        except Exception as e:
-            click.secho(e.args, fg="red")
-            click.secho(traceback.format_exc())
-    else:
+    question_data = qdb.get_question(question_id)
+    if not question_data:
         click.secho(f"Could not find the question with id {question_id}")
+        return
+
+    file_handler = create_file_handler(question_data, cm.config)
+    code = file_handler.generate_submission_file()
+
+    try:
+        lc = LeetcodeClient()
+        title_slug = (
+            question_data.title_slug if question_data.title_slug else qdb.get_title_from_id(question_id)
+        )
+        raw_inputs = "\n".join(["\n".join(i.split(", ")) for i in question_data.inputs])
+        lc.submit_question(
+            code,
+            question_data.internal_id,
+            title_slug,
+            cm.config["language"],
+            True,
+            raw_inputs,
+        )
+    except (LeetcodeAPIError, LeetcodeAuthError) as e:
+        click.secho(str(e), fg="red")
 
 
 @leet2git.command()
@@ -181,26 +180,21 @@ def run(cm: ConfigManager, question_id: int):
 def import_all(cm: ConfigManager):
     """Get all solutions and generate their files"""
     qdb: QuestionDB = QuestionDB(cm.config)
-    lc = LeetcodeClient()
     qdb.load()
     has_next: bool = True
     last_key: str = ""
     offset: int = 0
     imported_cnt = 0
+    manager: SyncManager | None = None
 
     try:
+        lc = LeetcodeClient()
         while has_next:
             jobs: list[Process] = []
             manager = SyncManager()
             manager.start(mgr_init)
             ret_dict = manager.dict()
             submissions = lc.get_submission_list(last_key, offset)
-            if "submissions_dump" not in submissions:
-                if imported_cnt <= 0:
-                    raise ValueError(
-                        "No submission to import. Are you logged in to leetcode? (Chrome or Firefox)"
-                    )
-                break
             for submission in submissions["submissions_dump"]:
                 qid: int = get_question_id(submission["title_slug"], qdb, lc)
                 if (
@@ -235,11 +229,11 @@ def import_all(cm: ConfigManager):
     except KeyboardInterrupt:
         click.secho("Stopping the process...")
         imported_cnt += wait_to_finish_download(jobs, ret_dict, qdb)
-    except Exception as e:
-        click.secho(e.args, fg="red")
-        click.secho(traceback.format_exc())
+    except (LeetcodeAPIError, LeetcodeAuthError, ValueError) as e:
+        click.secho(str(e), fg="red")
     finally:
-        manager.shutdown()
+        if manager is not None:
+            manager.shutdown()
 
     qdb.save()
     # update readme

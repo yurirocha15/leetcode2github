@@ -7,8 +7,8 @@ Authors:
 import ast
 import os
 import re
+import shutil
 import subprocess
-import traceback
 from typing import Any
 
 import click
@@ -47,8 +47,13 @@ class PythonHandler(FileHandler):
         functions: list[str] = re.findall(
             r"[^#\s*]\s+def\s+(.*?)\(self,", self.question_data.question_template
         )
+        if not functions:
+            raise ValueError("Could not find a Python function in the LeetCode code template.")
         if functions[0] == "__init__":
-            functions[0] = re.findall(r"^class\s+(.*?):", self.question_data.question_template)[0]
+            classes = re.findall(r"^class\s+(.*?):", self.question_data.question_template)
+            if not classes:
+                raise ValueError("Could not find a Python class in the LeetCode code template.")
+            functions[0] = classes[0]
         self.question_data.function_name = functions
         return functions
 
@@ -89,6 +94,7 @@ class PythonHandler(FileHandler):
         self.question_data.file_path += extension
 
         full_path: str = os.path.join(self.config["source_path"], self.question_data.file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
         with open(full_path, "w", encoding="UTF8") as f:
             f.writelines(lines)
@@ -109,7 +115,7 @@ class PythonHandler(FileHandler):
             )
             f.write("")
 
-        self.run_black_and_isort(full_path)
+        self.run_formatter(full_path)
 
         return self.question_data.file_path
 
@@ -146,6 +152,7 @@ class PythonHandler(FileHandler):
         full_path: str = os.path.join(
             self.config["source_path"], "tests", f"test_{self.question_data.id}{extension}"
         )
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(
             full_path,
             "a",
@@ -212,7 +219,7 @@ class PythonHandler(FileHandler):
                             + "\n"
                         )
 
-        self.run_black_and_isort(full_path)
+        self.run_formatter(full_path)
 
         return os.path.join("tests", f"test_{self.question_data.id}{extension}")
 
@@ -265,27 +272,27 @@ class PythonHandler(FileHandler):
 
         return lines
 
-    def run_black_and_isort(self, file_path: str) -> None:
-        """Run black and isort in a file
+    def run_formatter(self, file_path: str) -> None:
+        """Run Ruff formatter if it is available.
 
         Args:
             file_path (str): the path to the file
         """
+        if not shutil.which("ruff"):
+            click.secho(f"Skipping formatting for {file_path}: ruff is not installed.", fg="yellow")
+            return
         try:
             subprocess.run(
-                f"isort --profile=black {file_path}",
+                ["ruff", "check", "--fix", file_path],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                shell=True,
                 check=True,
             )
             subprocess.run(
-                f"black {file_path}",
+                ["ruff", "format", file_path],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                shell=True,
                 check=True,
             )
         except subprocess.CalledProcessError as e:
-            click.secho(e.args, fg="red")
-            click.secho(traceback.format_exc())
+            click.secho(f"Could not format {file_path}: {e}", fg="red")

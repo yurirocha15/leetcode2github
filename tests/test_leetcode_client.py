@@ -5,7 +5,7 @@ from http.cookiejar import Cookie, CookieJar
 import httpx
 import pytest
 
-from leet2git.leetcode_client import LeetcodeAuthError, LeetcodeClient
+from leet2git.leetcode_client import LeetcodeAPIError, LeetcodeAuthError, LeetcodeClient
 
 
 def cookie(name: str, value: str, domain: str) -> Cookie:
@@ -239,3 +239,60 @@ def test_async_submit_question_polls_until_success(monkeypatch):
         ("POST", "https://leetcode.com/problems/two-sum/interpret_solution/"),
         ("GET", "https://leetcode.com/submissions/detail/123/check/"),
     ]
+
+
+def test_request_json_wraps_http_errors():
+    client = make_client(lambda _: httpx.Response(403, json={"error": "forbidden"}))
+
+    with pytest.raises(LeetcodeAPIError, match="HTTP 403"):
+        asyncio.run(client._request_json("GET", "https://leetcode.com/api/private"))
+
+
+def test_request_json_rejects_non_json_response():
+    client = make_client(lambda _: httpx.Response(200, text="<html></html>"))
+
+    with pytest.raises(LeetcodeAPIError, match="non-JSON"):
+        asyncio.run(client._request_json("GET", "https://leetcode.com/api/private"))
+
+
+def test_latest_submission_requires_code_field():
+    client = make_client(lambda _: httpx.Response(200, json={}))
+
+    with pytest.raises(LeetcodeAPIError, match="code"):
+        asyncio.run(client.async_get_latest_submission("1", "python3"))
+
+
+def test_submission_list_requires_expected_shape():
+    client = make_client(lambda _: httpx.Response(200, json={"submissions_dump": []}))
+
+    with pytest.raises(LeetcodeAPIError, match="has_next"):
+        asyncio.run(client.async_get_submission_list())
+
+
+def test_get_question_data_validates_question_payload():
+    client = make_client(lambda _: httpx.Response(200, json={"data": {"question": None}}))
+
+    with pytest.raises(LeetcodeAPIError, match="two-sum"):
+        client.get_question_data(1, "two-sum", "python3")
+
+
+def test_get_question_data_requires_language_snippet():
+    question_payload = {
+        "data": {
+            "question": {
+                "questionId": "1",
+                "title": "Two Sum",
+                "titleSlug": "two-sum",
+                "difficulty": "Easy",
+                "codeSnippets": [{"langSlug": "java", "code": "class Solution {}"}],
+                "topicTags": [],
+                "content": "<p>desc</p>",
+                "sampleTestCase": "[1]\n1",
+                "exampleTestcases": "[1]\n1",
+            }
+        }
+    }
+    client = make_client(lambda _: httpx.Response(200, json=question_payload))
+
+    with pytest.raises(LeetcodeAPIError, match="python3"):
+        client.get_question_data(1, "two-sum", "python3")

@@ -73,10 +73,10 @@ class DefaultHandler(FileHandler):
         )
         lines.extend(code)
         self.question_data.file_path += extension
+        full_path = os.path.join(self.config["source_path"], self.question_data.file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
-        with open(
-            os.path.join(self.config["source_path"], self.question_data.file_path), "w", encoding="UTF8"
-        ) as f:
+        with open(full_path, "w", encoding="UTF8") as f:
             f.writelines(lines)
 
         return self.question_data.file_path

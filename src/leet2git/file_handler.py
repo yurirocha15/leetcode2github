@@ -6,7 +6,6 @@ Authors:
 
 import os
 import signal
-import traceback
 from abc import ABC, abstractmethod
 from collections.abc import MutableMapping
 from typing import Any
@@ -14,7 +13,7 @@ from typing import Any
 import click
 from git import Repo
 
-from leet2git.leetcode_client import LeetcodeClient
+from leet2git.leetcode_client import LeetcodeAPIError, LeetcodeClient
 from leet2git.question_db import QuestionData
 
 
@@ -173,9 +172,8 @@ def generate_files(
     s = signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         data, is_new = lc.get_question_data(qid, title_slug, config["language"], code)
-    except ValueError as e:
-        click.secho(e.args, fg="red")
-        click.secho(traceback.format_exc())
+    except (LeetcodeAPIError, ValueError) as e:
+        click.secho(str(e), fg="red")
         signal.signal(signal.SIGINT, s)
         return
 
