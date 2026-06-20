@@ -3,12 +3,13 @@ File Handler for python language
 Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
+
 import ast
 import os
 import re
 import subprocess
 import traceback
-from typing import Any, Dict, List
+from typing import Any
 
 import click
 from autoimport import fix_files
@@ -20,14 +21,14 @@ from leet2git.question_db import QuestionData
 class PythonHandler(FileHandler):
     """Generates the source and test python files"""
 
-    languages: List[str] = ["python", "python3"]
+    languages: list[str] = ["python", "python3"]
 
     def __init__(self) -> None:
         super().__init__()
         self.question_data: QuestionData = QuestionData()
-        self.config: Dict[str, Any] = {}
+        self.config: dict[str, Any] = {}
 
-    def set_data(self, question_data: QuestionData, config: Dict[str, Any]):
+    def set_data(self, question_data: QuestionData, config: dict[str, Any]):
         """Sets the data needed to generate the files
 
         Args:
@@ -37,13 +38,13 @@ class PythonHandler(FileHandler):
         self.question_data = question_data
         self.config = config
 
-    def get_function_name(self) -> List[str]:
+    def get_function_name(self) -> list[str]:
         """Returns the function name
 
         Returns:
             List[str]: a list with all function names
         """
-        functions: List[str] = re.findall(
+        functions: list[str] = re.findall(
             r"[^#\s*]\s+def\s+(.*?)\(self,", self.question_data.question_template
         )
         if functions[0] == "__init__":
@@ -64,7 +65,7 @@ class PythonHandler(FileHandler):
             if self.config["source_code"]["add_description"]
             else []
         )
-        lines: List[str] = (
+        lines: list[str] = (
             [
                 comment + f" @l2g {self.question_data.id} {self.question_data.language}\n",
                 comment + f" [{self.question_data.id}] {self.question_data.title}\n",
@@ -132,7 +133,9 @@ class PythonHandler(FileHandler):
         if len(self.question_data.function_name) > 1:
             inputs = []
             outputs = []
-            for q_input, q_output in zip(self.question_data.inputs, self.question_data.outputs):
+            for q_input, q_output in zip(
+                self.question_data.inputs, self.question_data.outputs, strict=True
+            ):
                 tmp_inputs = q_input.split(", ")
                 inputs.append([])
                 for tmp_input in tmp_inputs:
@@ -184,7 +187,7 @@ class PythonHandler(FileHandler):
             f.write(f"    yield _init_variables_{self.question_data.id}\n")
             f.write("\n")
             f.write(f"class TestClass{self.question_data.id}:")
-            for i, (q_input, q_output) in enumerate(zip(inputs, outputs)):
+            for i, (q_input, q_output) in enumerate(zip(inputs, outputs, strict=True)):
                 f.write("\n")
                 f.write(f"    def test_solution_{i}(self, init_variables_{self.question_data.id}):\n")
                 if len(self.question_data.function_name) == 1:
@@ -198,7 +201,7 @@ class PythonHandler(FileHandler):
                     )
                 else:
                     for input_func, input_val, output in zip(
-                        q_input[0][1:], q_input[1][1:], q_output[1:]
+                        q_input[0][1:], q_input[1][1:], q_output[1:], strict=True
                     ):
                         f.write(
                             "        assert"
@@ -223,7 +226,7 @@ class PythonHandler(FileHandler):
         # regex to match main definition
         match = r"""^if\s+__name__\s+==\s+('|")__main__('|")\s*:\s*"""
         full_path: str = os.path.join(self.config["source_path"], self.question_data.file_path)
-        with open(full_path, "r", encoding="UTF8") as f:
+        with open(full_path, encoding="UTF8") as f:
             for line in f:
                 if re.match(match, line):
                     break
@@ -244,7 +247,7 @@ class PythonHandler(FileHandler):
         with open(os.path.join(folder_path, "tests", "__init__.py"), "w") as file:
             file.write("\n")
 
-    def parse_raw_code(self, raw_code: str, is_solution: bool) -> List[str]:
+    def parse_raw_code(self, raw_code: str, is_solution: bool) -> list[str]:
         """Parses the raw code returned by leetcode
 
         Args:

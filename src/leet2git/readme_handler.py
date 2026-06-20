@@ -3,9 +3,10 @@ Handles the REAMDE generation
 Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
+
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 from leet2git.question_db import QuestionData, QuestionDB
 
@@ -15,27 +16,27 @@ class ReadmeTable:
     """Data related to a table"""
 
     title: str = ""
-    fields: List[str] = field(default_factory=list)
-    values: List[List[str]] = field(default_factory=list)
+    fields: list[str] = field(default_factory=list)
+    values: list[list[str]] = field(default_factory=list)
 
 
 class ReadmeHandler:
     """Updates the README with the solved questions"""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         self.readme_file: str = os.path.join(config["source_path"], "README.md")
         self.print_categories: bool = config["readme"]["show_category"]
         self.print_difficulty: bool = config["readme"]["show_difficulty"]
 
-    def build_readme(self, question_list: List[QuestionData]):
+    def build_readme(self, question_list: list[QuestionData]):
         """Updates the README file
 
         Args:
             question_list (List[QuestionData]): a sorted list with the question data
         """
 
-        category_tables: Dict[str, ReadmeTable] = {}
-        difficulty_tables: Dict[str, ReadmeTable] = {
+        category_tables: dict[str, ReadmeTable] = {}
+        difficulty_tables: dict[str, ReadmeTable] = {
             "Easy": ReadmeTable(
                 title='<a name="Easy"></a>Easy Questions',
                 fields=["ID", "Problem", "Leetcode ID", "Categories"],
@@ -65,7 +66,7 @@ class ReadmeHandler:
                     categories_str += f"[{c['name']}](#{c['slug']}), "
                     if c["slug"] not in category_tables:
                         category_tables[c["slug"]] = ReadmeTable(
-                            title=f"""<a name="{c['slug']}"></a>{c['name']}""",
+                            title=f"""<a name="{c["slug"]}"></a>{c["name"]}""",
                             fields=["ID", "Problem", "Leetcode ID", "Difficulty"],
                         )
                     category_tables[c["slug"]].values.append(
@@ -105,8 +106,8 @@ class ReadmeHandler:
     def dump_tables(
         self,
         main_table: ReadmeTable,
-        category_tables: Dict[str, ReadmeTable],
-        difficulty_tables: Dict[str, ReadmeTable],
+        category_tables: dict[str, ReadmeTable],
+        difficulty_tables: dict[str, ReadmeTable],
     ):
         """Generates the README file
 
@@ -116,7 +117,6 @@ class ReadmeHandler:
             difficulty_tables (Dict[str, ReadmeTable]): a dictionary with tables separated by difficulty
         """
         with open(self.readme_file, "w", encoding="UTF8") as f:
-
             f.write("# Table of Contents\n")
             f.write(f"[{main_table.title}](#summary)  \n")
             if self.print_difficulty:

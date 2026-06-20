@@ -3,13 +3,14 @@ Handles the connection with github API
 Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
+
 import json
 import os
 import platform
 import re
 import time
 import traceback
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import browser_cookie3
 import click
@@ -32,7 +33,7 @@ class LeetcodeClient:
 
         self.cookies, self.csrftoken = self.get_cookies()
 
-    def get_cookies(self) -> Tuple[str, str]:
+    def get_cookies(self) -> tuple[str, str]:
         """Get the cookies from the browser
 
         Returns:
@@ -41,12 +42,14 @@ class LeetcodeClient:
         url: str = "https://leetcode.com/profile/"
         client = requests.session()
         browsers = (browser_cookie3.chrome, browser_cookie3.firefox)
+        cookies = ""
+        csrftoken = ""
 
         for browser in browsers:
             try:
                 r = client.get(url, cookies=browser())
-                cookies = r.request.headers["Cookie"]
-                csrftoken = client.cookies["csrftoken"]
+                cookies = str(r.request.headers["Cookie"])
+                csrftoken = str(client.cookies["csrftoken"])
             except browser_cookie3.BrowserCookieError as e:
                 click.secho(e.args, fg="red")
             if csrftoken:
@@ -54,7 +57,7 @@ class LeetcodeClient:
 
         return cookies, csrftoken
 
-    def get_headers(self) -> Dict[str, str]:
+    def get_headers(self) -> dict[str, str]:
         """Return the headers needed to call leetcode api
 
         Returns:
@@ -77,8 +80,8 @@ class LeetcodeClient:
         return headers
 
     def get_question_data(
-        self, question_id: int, title_slug: str, language: str, code: Optional[str] = ""
-    ) -> Tuple[QuestionData, bool]:
+        self, question_id: int, title_slug: str, language: str, code: str | None = ""
+    ) -> tuple[QuestionData, bool]:
         """Gets the data from a question
 
         Args:
@@ -161,7 +164,7 @@ class LeetcodeClient:
 
         return data, True
 
-    def scrap_question_data(self, question_name: str) -> Dict[str, Dict[str, Any]]:
+    def scrap_question_data(self, question_name: str) -> dict[str, dict[str, Any]]:
         """Query a question information
 
         Args:
@@ -245,7 +248,7 @@ class LeetcodeClient:
     def submit_question(
         self,
         code: str,
-        internal_id: str,
+        internal_id: int,
         title_slug: str,
         language: str,
         is_test: bool = False,
@@ -266,7 +269,7 @@ class LeetcodeClient:
             "interpret_solution/" if is_test else "submit/"
         )
 
-        payload_dict: Dict[str, str] = {
+        payload_dict: dict[str, Any] = {
             "question_id": internal_id,
             "lang": language,
             "typed_code": code,
@@ -286,36 +289,36 @@ class LeetcodeClient:
         status: str = ""
         while status != "SUCCESS":
             response = requests.request("GET", url, headers=self.get_headers(), data=payload)
-            submission_result: Dict[str, Any] = json.loads(response.text)
+            submission_result: dict[str, Any] = json.loads(response.text)
             status = submission_result["state"]
             time.sleep(1)
 
         click.clear()
-        click.secho(f'Result: {submission_result["status_msg"]}')
+        click.secho(f"Result: {submission_result['status_msg']}")
         if submission_result["status_code"] == 10:
             click.secho(
-                f'Total Runtime: {submission_result["status_runtime"]} '
-                + ("" if is_test else f'(Better than {submission_result["runtime_percentile"]:.2f}%)')
+                f"Total Runtime: {submission_result['status_runtime']} "
+                + ("" if is_test else f"(Better than {submission_result['runtime_percentile']:.2f}%)")
             )
             click.secho(
-                f'Total Memory: {submission_result["status_memory"]} '
-                + ("" if is_test else f'(Better than {submission_result["memory_percentile"]:.2f}%)')
+                f"Total Memory: {submission_result['status_memory']} "
+                + ("" if is_test else f"(Better than {submission_result['memory_percentile']:.2f}%)")
             )
         elif submission_result["status_code"] == 11:
-            click.secho(f'Last Input: {submission_result["input_formatted"]}')
-            click.secho(f'Expected Output: {submission_result["expected_output"]}')
-            click.secho(f'Code Output: {submission_result["code_output"]}')
+            click.secho(f"Last Input: {submission_result['input_formatted']}")
+            click.secho(f"Expected Output: {submission_result['expected_output']}")
+            click.secho(f"Code Output: {submission_result['code_output']}")
         elif submission_result["status_code"] == 14:
             nl = "\n"
-            click.secho(f'Last Input: {submission_result["last_testcase"].replace(nl, " ")}')
-            click.secho(f'Expected Output: {submission_result["expected_output"]}')
-            click.secho(f'Code Output: {submission_result["code_output"]}')
+            click.secho(f"Last Input: {submission_result['last_testcase'].replace(nl, ' ')}")
+            click.secho(f"Expected Output: {submission_result['expected_output']}")
+            click.secho(f"Code Output: {submission_result['code_output']}")
         elif submission_result["status_code"] == 15:
-            click.secho(f'Runtime Error: {submission_result["runtime_error"]}')
+            click.secho(f"Runtime Error: {submission_result['runtime_error']}")
         elif submission_result["status_code"] == 20:
-            click.secho(f'Compile Error: {submission_result["compile_error"]}')
+            click.secho(f"Compile Error: {submission_result['compile_error']}")
 
-    def get_submission_list(self, last_key: str = "", offset: int = 0) -> Dict[str, Any]:
+    def get_submission_list(self, last_key: str = "", offset: int = 0) -> dict[str, Any]:
         """Get a list with 20 submissions
 
         Args:

@@ -3,9 +3,10 @@ Manages the configuration files
 Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
+
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 import appdirs
 import click
@@ -19,14 +20,14 @@ class ConfigManager:
         self._config_path = ad.user_config_dir
         self._data_path = ad.user_data_dir
         self._config_file = os.path.join(self._config_path, "config.json")
-        self._config: Dict[str, Any] = None
+        self._config: dict[str, Any] | None = None
         os.makedirs(self._config_path, exist_ok=True)
         os.makedirs(self._data_path, exist_ok=True)
         if not os.path.isfile(self._config_file):
             self.reset_config("")
 
     @property
-    def config(self) -> Dict[str, Any]:
+    def config(self) -> dict[str, Any]:
         """The user configuration
 
         Returns:
@@ -37,7 +38,7 @@ class ConfigManager:
             config = {}
         return config
 
-    def load_config(self, override_config: Optional[Dict[str, Any]] = None):
+    def load_config(self, override_config: dict[str, Any] | None = None):
         """Loads the configuration
 
         Args:
@@ -46,7 +47,7 @@ class ConfigManager:
         """
         if not override_config:
             override_config = {}
-        with open(self._config_file, "r") as file:
+        with open(self._config_file) as file:
             self._config = json.load(file)
         self._config["data_path"] = self._data_path
         for key, value in override_config.items():

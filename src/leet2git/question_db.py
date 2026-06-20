@@ -3,11 +3,12 @@ Handles the local question database
 Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
+
 import operator
 import os
 import pickle
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -26,28 +27,28 @@ class QuestionData:
     question_template: str = ""
     raw_code: str = ""
     language: str = ""
-    function_name: List[str] = field(default_factory=list)
-    description: List[str] = field(default_factory=list)
-    inputs: List[str] = field(default_factory=list)
-    outputs: List[str] = field(default_factory=list)
-    categories: List[Dict[str, str]] = field(default_factory=list)
+    function_name: list[str] = field(default_factory=list)
+    description: list[str] = field(default_factory=list)
+    inputs: list[str] = field(default_factory=list)
+    outputs: list[str] = field(default_factory=list)
+    categories: list[dict[str, str]] = field(default_factory=list)
 
 
 @dataclass
 class IdTitleMap:
     """Maps Ids and title slugs"""
 
-    id_to_title: Dict[int, str] = field(default_factory=dict)
-    title_to_id: Dict[str, int] = field(default_factory=dict)
+    id_to_title: dict[int, str] = field(default_factory=dict)
+    title_to_id: dict[str, int] = field(default_factory=dict)
 
 
 class QuestionDB:
     """Handles the question data"""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         self.db_file = os.path.join(config["data_path"], ".question_data.pkl")
         self.id_title_map_file = os.path.join(config["data_path"], ".id_title_map.pkl")
-        self.question_data_dict: Dict[int, QuestionData] = {}
+        self.question_data_dict: dict[int, QuestionData] = {}
         self.id_title_map: IdTitleMap = IdTitleMap()
 
     def load(self):
@@ -66,7 +67,7 @@ class QuestionDB:
         with open(self.id_title_map_file, "wb") as f:
             pickle.dump(self.id_title_map, f)
 
-    def get_data(self) -> Dict[int, QuestionData]:
+    def get_data(self) -> dict[int, QuestionData]:
         """Returns the question data
 
         Returns:
@@ -74,7 +75,7 @@ class QuestionDB:
         """
         return self.question_data_dict
 
-    def get_question(self, question_id: int) -> Optional[QuestionData]:
+    def get_question(self, question_id: int) -> QuestionData | None:
         """get a question data if it exists
 
         Args:
@@ -104,7 +105,7 @@ class QuestionDB:
         if question_id in self.question_data_dict:
             self.question_data_dict.pop(question_id)
 
-    def get_sorted_list(self, sort_by: str) -> List[QuestionData]:
+    def get_sorted_list(self, sort_by: str) -> list[QuestionData]:
         """Returns a sorted list with all the questions
 
         Args:
@@ -186,6 +187,6 @@ class QuestionDB:
 
     def reset(self):
         """Delete database"""
-        self.question_data_dict: Dict[int, QuestionData] = {}
+        self.question_data_dict: dict[int, QuestionData] = {}
         self.id_title_map: IdTitleMap = IdTitleMap()
         self.save()

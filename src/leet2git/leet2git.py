@@ -3,13 +3,13 @@ App entry point
 Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
+
 import glob
 import os
 import time
 import traceback
 from multiprocessing import Process
 from multiprocessing.managers import SyncManager
-from typing import Any, Dict, List, Optional
 
 import click
 from click.core import Context
@@ -48,8 +48,8 @@ from leet2git.version import version_info
 @click.pass_context
 def leet2git(
     ctx: Context,
-    source_repository: Optional[str] = "",
-    language: Optional[str] = "",
+    source_repository: str | None = "",
+    language: str | None = "",
 ):
     """Leet2Git App
     \f
@@ -89,7 +89,7 @@ def get(cm: ConfigManager, question_id: int):
         qdb.save()
 
     # get question data
-    args: Dict[int, QuestionData] = {}
+    args: dict[int, QuestionData] = {}
     generate_files(args, question_id, qdb.get_title_from_id(question_id), lc, time.time(), cm.config)
 
     if question_id in args:
@@ -115,12 +115,13 @@ def submit(cm: ConfigManager, question_id: int):
     qdb.load()
     # create submit file
     if qdb.check_if_exists(question_id):
-        file_handler = create_file_handler(qdb.get_question(question_id), cm.config)
+        question_data = qdb.get_question(question_id)
+        assert question_data is not None
+        file_handler = create_file_handler(question_data, cm.config)
         code = file_handler.generate_submission_file()
 
         lc = LeetcodeClient()
         try:
-            question_data = qdb.get_question(question_id)
             title_slug = (
                 question_data.title_slug
                 if question_data.title_slug
@@ -147,12 +148,13 @@ def run(cm: ConfigManager, question_id: int):
     qdb.load()
     # create test file
     if qdb.check_if_exists(question_id):
-        file_handler = create_file_handler(qdb.get_question(question_id), cm.config)
+        question_data = qdb.get_question(question_id)
+        assert question_data is not None
+        file_handler = create_file_handler(question_data, cm.config)
         code = file_handler.generate_submission_file()
 
         lc = LeetcodeClient()
         try:
-            question_data = qdb.get_question(question_id)
             title_slug = (
                 question_data.title_slug
                 if question_data.title_slug
@@ -188,10 +190,10 @@ def import_all(cm: ConfigManager):
 
     try:
         while has_next:
-            jobs: List[Process] = []
+            jobs: list[Process] = []
             manager = SyncManager()
             manager.start(mgr_init)
-            ret_dict: Dict[Any, Any] = manager.dict()
+            ret_dict = manager.dict()
             submissions = lc.get_submission_list(last_key, offset)
             if "submissions_dump" not in submissions:
                 if imported_cnt <= 0:

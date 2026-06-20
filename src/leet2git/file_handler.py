@@ -3,19 +3,19 @@ Abstract class that defines the file handlers
 Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
+
 import os
 import signal
 import traceback
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from collections.abc import MutableMapping
+from typing import Any
 
 import click
 from git import Repo
 
 from leet2git.leetcode_client import LeetcodeClient
 from leet2git.question_db import QuestionData
-
-T = TypeVar("T", bound="FileHandler")
 
 
 class FileHandler(ABC):
@@ -26,8 +26,8 @@ class FileHandler(ABC):
         languages (List[str]): List of languages this handler generates files to
     """
 
-    languages: List[str] = []
-    conversions: Dict[str, Dict[str, str]] = {
+    languages: list[str] = []
+    conversions: dict[str, dict[str, str]] = {
         "bash": {"extension": ".sh", "comment": "#"},
         "c": {"extension": ".c", "comment": "//"},
         "cpp": {"extension": ".cpp", "comment": "//"},
@@ -47,7 +47,7 @@ class FileHandler(ABC):
     }
 
     @classmethod
-    def get_handler_type(cls: Type[T], config: Dict[str, Any]) -> Type[T]:
+    def get_handler_type(cls, config: dict[str, Any]) -> type["FileHandler"]:
         """Returns the type of the correct subclass
 
         Args:
@@ -57,13 +57,10 @@ class FileHandler(ABC):
         Returns:
             Type[FileHandler]: the type of the correct subclass
         """
-        subclasses: Dict[str, Type[T]] = {
+        subclasses: dict[str, type[FileHandler]] = {
             language: subclass for subclass in cls.__subclasses__() for language in subclass.languages
         }
-        subclass: Type[T] = DefaultHandler
-        if config["language"].lower() in subclasses:
-            subclass = subclasses[config["language"].lower()]
-        return subclass
+        return subclasses.get(config["language"].lower(), DefaultHandler)
 
     def check_if_exists(self, language: str) -> bool:
         """Check if there is a handler for a given language
@@ -88,7 +85,7 @@ class FileHandler(ABC):
         os.makedirs(os.path.join(folder_path, "src"), exist_ok=True)
 
     @abstractmethod
-    def set_data(self, question_data: QuestionData, config: Dict[str, Any]) -> None:
+    def set_data(self, question_data: QuestionData, config: dict[str, Any]) -> None:
         """Abstract method definition
 
         Raises:
@@ -97,7 +94,7 @@ class FileHandler(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_function_name(self) -> str:
+    def get_function_name(self) -> list[str]:
         """Abstract method definition
 
         Raises:
@@ -124,7 +121,7 @@ class FileHandler(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def generate_submission_file(self) -> None:
+    def generate_submission_file(self) -> str:
         """Abstract method definition
 
         Raises:
@@ -137,7 +134,7 @@ class FileHandler(ABC):
 # pylint: disable=abstract-class-instantiated
 
 
-def create_file_handler(data: QuestionData, config: Dict[str, Any]) -> FileHandler:
+def create_file_handler(data: QuestionData, config: dict[str, Any]) -> FileHandler:
     """Create an instance of a File Handler
 
     Args:
@@ -147,20 +144,20 @@ def create_file_handler(data: QuestionData, config: Dict[str, Any]) -> FileHandl
     Returns:
         FileHandler: [description]
     """
-    handler_type: Type[FileHandler] = FileHandler.get_handler_type(config)
+    handler_type: type[FileHandler] = FileHandler.get_handler_type(config)
     file_handler = super(FileHandler, handler_type).__new__(handler_type)
     file_handler.set_data(data, config)
     return file_handler
 
 
 def generate_files(
-    args: Dict[int, QuestionData],
+    args: MutableMapping[int, QuestionData],
     qid: int,
     title_slug: str,
     lc: LeetcodeClient,
     timestamp: float,
-    config: Dict[str, Any],
-    code: Optional[str] = "",
+    config: dict[str, Any],
+    code: str | None = "",
 ) -> None:
     """Auxiliar function to generate the question files
 

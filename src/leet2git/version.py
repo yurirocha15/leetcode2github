@@ -3,6 +3,7 @@ Version management
 Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
+
 import os
 import platform
 import re
@@ -18,7 +19,7 @@ def version_info() -> str:
         "python version": sys.version.replace("\n", " "),
         "platform": platform.platform(),
     }
-    return "\n".join(f"{k + ':' :>30} {v}" for k, v in info.items())
+    return "\n".join(f"{k + ':':>30} {v}" for k, v in info.items())
 
 
 def update_version_string(new_version: str):

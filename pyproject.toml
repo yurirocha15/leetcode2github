@@ -1,36 +1,89 @@
-# --------- Black -------------
+[project]
+name = "leet2git"
+dynamic = ["version"]
+description = "Tool to ease the integration between Leetcode and a Git repository"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "Yuri Rocha", email = "yurirocha15@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "appdirs>=1.4.4",
+    "autoimport>=1.6.1",
+    "beautifulsoup4>=4.14.3",
+    "browser-cookie3>=0.20.1",
+    "click>=8.3.1",
+    "gitpython>=3.1.45",
+    "pydantic>=2.13.4",
+    "requests>=2.32.5",
+]
 
-[tool.black]
+[project.urls]
+Homepage = "https://github.com/yurirocha15/leetcode2github"
+Repository = "https://github.com/yurirocha15/leetcode2github"
+
+[project.scripts]
+leet2git = "leet2git.leet2git:leet2git"
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.3.0",
+    "pre-commit>=4.5.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-custom-exit-code>=0.3.0",
+    "ruff>=0.15.18",
+    "ty>=0.0.51",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "leet2git.version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+leet2git = ["py.typed"]
+
+[tool.ruff]
 line-length = 104
-target-version = ['py38']
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-  # The following are specific to Black, you probably don't want those.
-  | blib2to3
-  | tests/data
-  | profiling
-)/
-'''
+target-version = "py311"
+src = ["src", "tests"]
 
-# --------- Isort -------------
+[tool.ruff.lint]
+select = [
+    "B",
+    "C4",
+    "E",
+    "F",
+    "I",
+    "N",
+    "UP",
+    "W",
+]
+ignore = [
+    "E501",
+]
 
-[tool.isort]
-profile = "black"
-src_paths = ["src", "test"]
-
-# --------- Build-system -------------
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
 
 [build-system]
-requires = ["setuptools >= 40.6.0", "wheel"]
+requires = ["setuptools>=80.9.0", "wheel"]
 build-backend = "setuptools.build_meta"
