@@ -14,7 +14,7 @@ jobs:
       run: uv python install
     - name: Setup
       run: uv sync --extra dev --frozen
-    - name: Format with black and isort
+    - name: Format with Ruff
       run: make format
-    - name: Lint with flake8, mypy and pylint
+    - name: Lint with Ruff and ty
       run: make lint
