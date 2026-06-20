@@ -13,19 +13,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7
       with:
         fetch-depth: '0'
-    - name: Set up Python
-      uses: actions/setup-python@v2
+    - uses: astral-sh/setup-uv@v8.2.0
       with:
-        python-version: '3.8.x'
+        enable-cache: true
+    - name: Set up Python
+      run: uv python install
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build
+      run: uv sync --extra dev --frozen
     - name: Get next version
-      uses: anothrNick/github-tag-action@9885a4f9af674ba472de91fb3c0cb033ecb32b7e
+      uses: anothrNick/github-tag-action@1.75.0
       id: bump_version
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -33,35 +32,93 @@ jobs:
         WITH_V: false
         RELEASE_BRANCHES: main
         DRY_RUN: true
+    - name: Resolve release version
+      id: release_version
+      env:
+        TAG_VERSION: ${{ steps.bump_version.outputs.tag }}
+        NEW_TAG_VERSION: ${{ steps.bump_version.outputs.new_tag }}
+      run: |
+        current_version="$(uv run python - <<'PY'
+        import ast
+
+        with open("src/leet2git/version.py", encoding="UTF8") as file:
+            tree = ast.parse(file.read())
+
+        for node in tree.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "__version__":
+                    print(ast.literal_eval(node.value))
+                    raise SystemExit
+
+        raise SystemExit("Could not find __version__")
+        PY
+        )"
+        latest_pypi_version="$(uv run python - <<'PY'
+        import json
+        import urllib.request
+
+        with urllib.request.urlopen("https://pypi.org/pypi/leet2git/json", timeout=20) as response:
+            print(json.load(response)["info"]["version"])
+        PY
+        )"
+
+        release_version="$current_version"
+        release_reason="none"
+        if [ "$NEW_TAG_VERSION" != "$TAG_VERSION" ]; then
+          release_version="$NEW_TAG_VERSION"
+          release_reason="tag"
+        elif [ "$current_version" != "$latest_pypi_version" ]; then
+          release_reason="package-version"
+        fi
+
+        should_release=false
+        if [ "$release_reason" != "none" ]; then
+          should_release=true
+        fi
+
+        echo "current_version=$current_version" >> "$GITHUB_OUTPUT"
+        echo "latest_pypi_version=$latest_pypi_version" >> "$GITHUB_OUTPUT"
+        echo "version=$release_version" >> "$GITHUB_OUTPUT"
+        echo "reason=$release_reason" >> "$GITHUB_OUTPUT"
+        echo "should_release=$should_release" >> "$GITHUB_OUTPUT"
+
+        echo "Current version: $current_version"
+        echo "Latest PyPI version: $latest_pypi_version"
+        echo "Release version: $release_version"
+        echo "Release reason: $release_reason"
     - name: Update app version
-      if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
+      if: ${{ steps.release_version.outputs.reason == 'tag' }}
       run: | 
-        python src/leet2git/version.py ${{ steps.bump_version.outputs.new_tag }}
+        uv run python src/leet2git/version.py ${{ steps.release_version.outputs.version }}
         git config user.email "yurirocha15@gmail.com"
         git config user.name "Yuri Rocha"
         git add src/leet2git/version.py
-        git commit -m "bump version to ${{ steps.bump_version.outputs.new_tag }}"
+        git diff --cached --quiet || git commit -m "bump version to ${{ steps.release_version.outputs.version }}"
     - name: Push to protected branch
-      if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
-      uses: CasperWA/push-protected@v2
+      if: ${{ steps.release_version.outputs.reason == 'tag' }}
+      uses: CasperWA/push-protected@v2.16.0
       with:
         token: ${{ secrets.PUSH_TO_PROTECTED_BRANCH }}
         branch: main
         unprotect_reviews: true
-    - name: Bump version and push tag
-      if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
-      uses: anothrNick/github-tag-action@9885a4f9af674ba472de91fb3c0cb033ecb32b7e
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        DEFAULT_BUMP: none
-        WITH_V: true
-        RELEASE_BRANCHES: main
+    - name: Push release tag
+      if: ${{ steps.release_version.outputs.should_release == 'true' }}
+      run: |
+        tag="v${{ steps.release_version.outputs.version }}"
+        if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+          echo "Tag $tag already exists"
+        else
+          git tag "$tag"
+          git push origin "$tag"
+        fi
     - name: Build package
-      if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
-      run: python -m build
+      if: ${{ steps.release_version.outputs.should_release == 'true' }}
+      run: uv run python -m build
     - name: Publish package
-      if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
-      uses: pypa/gh-action-pypi-publish@release/v1
+      if: ${{ steps.release_version.outputs.should_release == 'true' }}
+      uses: pypa/gh-action-pypi-publish@v1.14.0
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}

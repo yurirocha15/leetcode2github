@@ -6,15 +6,13 @@ jobs:
   unittest:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: conda-incubator/setup-miniconda@v2
+    - uses: actions/checkout@v7
+    - uses: astral-sh/setup-uv@v8.2.0
       with:
-        activate-environment: coding-practice
-        python-version: 3.8
-        auto-activate-base: false
+        enable-cache: true
+    - name: Set up Python
+      run: uv python install
     - name: Setup
-      shell: bash -l {0}
-      run: make setup-dev
+      run: uv sync --extra dev --frozen
     - name: Run unit tests
-      shell: bash -l {0}
       run: make utest

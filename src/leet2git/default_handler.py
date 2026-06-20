@@ -3,9 +3,10 @@ File Handler for languages without a specific handler
 Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
-import os
-from typing import Any, Dict, List
 
+import os
+
+from leet2git.config_manager import AppConfig
 from leet2git.file_handler import FileHandler
 from leet2git.question_db import QuestionData
 
@@ -13,14 +14,14 @@ from leet2git.question_db import QuestionData
 class DefaultHandler(FileHandler):
     """Generates the source files for languages without handlers"""
 
-    languages: List[str] = []
+    languages: list[str] = []
 
     def __init__(self) -> None:
         super().__init__()
         self.question_data: QuestionData = QuestionData()
-        self.config: Dict[str, Any] = {}
+        self.config: AppConfig = AppConfig()
 
-    def set_data(self, question_data: QuestionData, config: Dict[str, Any]):
+    def set_data(self, question_data: QuestionData, config: AppConfig):
         """Sets the data needed to generate the files
 
         Args:
@@ -30,13 +31,13 @@ class DefaultHandler(FileHandler):
         self.question_data = question_data
         self.config = config
 
-    def get_function_name(self) -> List[str]:
+    def get_function_name(self) -> list[str]:
         """Returns the function name
 
         Returns:
             List[str]: a list with all function names
         """
-        return list()
+        return []
 
     def generate_source(self) -> str:
         """Generates the source file
@@ -48,10 +49,10 @@ class DefaultHandler(FileHandler):
         extension: str = self.conversions[self.question_data.language]["extension"]
         description = (
             [comment + " " + line + "\n" for line in self.question_data.description]
-            if self.config["source_code"]["add_description"]
+            if self.config.source_code.add_description
             else []
         )
-        lines: List[str] = (
+        lines: list[str] = (
             [
                 comment + f" @l2g {self.question_data.id} {self.question_data.language}\n",
                 comment + f" [{self.question_data.id}] {self.question_data.title}\n",
@@ -72,15 +73,15 @@ class DefaultHandler(FileHandler):
         )
         lines.extend(code)
         self.question_data.file_path += extension
+        full_path = os.path.join(self.config.source_path, self.question_data.file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
-        with open(
-            os.path.join(self.config["source_path"], self.question_data.file_path), "w", encoding="UTF8"
-        ) as f:
+        with open(full_path, "w", encoding="UTF8") as f:
             f.writelines(lines)
 
         return self.question_data.file_path
 
-    def generete_tests(self) -> str:
+    def generate_tests(self) -> str:
         """Not Implemented"""
         return ""
 
@@ -92,7 +93,7 @@ class DefaultHandler(FileHandler):
         """
         code: str = ""
         with open(
-            os.path.join(self.config["source_path"], self.question_data.file_path), "r", encoding="UTF8"
+            os.path.join(self.config.source_path, self.question_data.file_path), encoding="UTF8"
         ) as f:
             for line in f:
                 code += line

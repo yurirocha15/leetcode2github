@@ -3,14 +3,15 @@ My util functions
 Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
+
 import os
 import signal
+from collections.abc import Mapping
 from multiprocessing import Process
-from typing import Any, Dict, List
 
 from leet2git.config_manager import ConfigManager
 from leet2git.leetcode_client import LeetcodeClient
-from leet2git.question_db import QuestionDB
+from leet2git.question_db import QuestionData, QuestionDB
 
 
 def mgr_init():
@@ -28,7 +29,7 @@ def reset_config(cm: ConfigManager, source_repository: str, language: str, load_
         load_old (bool, optional): If true load old value from config. Defaults to True.
     """
     if not source_repository and load_old:
-        source_repository = cm.config["source_path"]
+        source_repository = cm.config.source_path
     if not source_repository:
         source_repository = os.getcwd()
     cm.reset_config(source_repository, language)
@@ -55,7 +56,9 @@ def get_question_id(title_slug: str, qdb: QuestionDB, lc: LeetcodeClient) -> int
     return qid
 
 
-def wait_to_finish_download(jobs: List[Process], ret_dict: Dict[Any, Any], qdb: QuestionDB) -> int:
+def wait_to_finish_download(
+    jobs: list[Process], ret_dict: Mapping[object, QuestionData], qdb: QuestionDB
+) -> int:
     """Wait until every subprocess finishes
 
     Args:

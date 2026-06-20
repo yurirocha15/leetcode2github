@@ -1,20 +1,22 @@
 format:
-	isort .
-	black .
+	uv run ruff format .
+	uv run ruff check --fix .
 
 lint:
-	env PYTHONPATH=src pytest src --pylint --flake8 --mypy
+	uv run ruff check .
+	uv run ty check src
 
 setup:
-	pip install -e .
+	uv sync
 
 setup-dev:
-	make setup
-	pip install -r requirements/requirements.txt
-	pip install -r requirements/requirements-dev.txt
+	uv sync --extra dev
 
 utest:
-	env PYTHONPATH=src pytest tests -s --verbose --cov=src --cov-report=html --cov-report=term-missing --suppress-no-test-exit-code
+	uv run pytest tests -s --verbose --cov=src --cov-report=html --cov-report=term-missing --cov-fail-under=90 --suppress-no-test-exit-code
+
+build:
+	uv run python -m build
 
 tree:
 	tree -I "$(shell cat .gitignore | tr -s '\n' '|')"
