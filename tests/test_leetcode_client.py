@@ -296,7 +296,7 @@ def test_async_submit_question_polls_until_success(monkeypatch):
             payload = json.loads(request.content)
             assert payload["question_id"] == 1
             assert payload["judge_type"] == "large"
-            return httpx.Response(200, json={"interpret_id": 123})
+            return httpx.Response(200, json={"interpret_id": "runcode_123"})
 
         return httpx.Response(
             200,
@@ -306,6 +306,7 @@ def test_async_submit_question_polls_until_success(monkeypatch):
                 "status_code": 10,
                 "status_runtime": "1 ms",
                 "status_memory": "1 MB",
+                "code_output": ["[0,1]"],
             },
         )
 
@@ -325,7 +326,7 @@ def test_async_submit_question_polls_until_success(monkeypatch):
 
     assert requests == [
         ("POST", "https://leetcode.com/problems/two-sum/interpret_solution/"),
-        ("GET", "https://leetcode.com/submissions/detail/123/check/"),
+        ("GET", "https://leetcode.com/submissions/detail/runcode_123/check/"),
     ]
 
 

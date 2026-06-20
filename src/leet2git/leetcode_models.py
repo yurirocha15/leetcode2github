@@ -124,7 +124,7 @@ class SubmitSolutionResponse(BaseModel):
 class InterpretSolutionResponse(BaseModel):
     """Interpret endpoint response."""
 
-    interpret_id: int
+    interpret_id: str
 
 
 class SubmissionResultResponse(BaseModel):
@@ -139,7 +139,7 @@ class SubmissionResultResponse(BaseModel):
     memory_percentile: float | None = None
     input_formatted: str | None = None
     expected_output: str | None = None
-    code_output: str | None = None
+    code_output: str | list[str] | None = None
     last_testcase: str | None = None
     runtime_error: str | None = None
     compile_error: str | None = None
