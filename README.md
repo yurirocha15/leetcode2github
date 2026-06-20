@@ -3,8 +3,8 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-46a2f1.svg)](https://docs.astral.sh/ruff/)
 [![Linting: Ruff & ty](https://img.shields.io/badge/linting-ruff%20%26%20ty-green)](https://docs.astral.sh/)
-[![Stable Version](https://img.shields.io/github/v/tag/yurirocha15/leetcode2github)](https://img.shields.io/github/v/tag/yurirocha15/leetcode2github)
-[![Latest Release](https://img.shields.io/github/v/release/yurirocha15/leetcode2github?color=%233D9970)](https://img.shields.io/github/v/release/yurirocha15/leetcode2github?color=%233D9970)
+[![Stable Version](https://img.shields.io/github/v/tag/yurirocha15/leetcode2github)](https://github.com/yurirocha15/leetcode2github/tags)
+[![Latest Release](https://img.shields.io/github/v/release/yurirocha15/leetcode2github?color=%233D9970)](https://github.com/yurirocha15/leetcode2github/releases/latest)
 [![Pypi Version](https://img.shields.io/pypi/v/leet2git)](https://pypi.org/project/leet2git/)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg)](#contributors-)
