@@ -212,6 +212,77 @@ def test_async_get_id_title_map_parses_problem_list():
     assert id_title_map.title_to_id == {"two-sum": 1}
 
 
+def test_async_get_latest_submission_uses_submission_history():
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(str(request.url))
+        if str(request.url) == "https://leetcode.com/api/problems/all/":
+            return httpx.Response(
+                200,
+                json={
+                    "stat_status_pairs": [
+                        {
+                            "stat": {
+                                "frontend_question_id": 1,
+                                "question__title_slug": "two-sum",
+                            }
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "submissions_dump": [
+                    {
+                        "title_slug": "two-sum",
+                        "status_display": "Accepted",
+                        "lang": "python3",
+                        "timestamp": 123,
+                        "code": "class Solution: ...",
+                    }
+                ],
+                "has_next": False,
+                "last_key": "",
+            },
+        )
+
+    client = make_client(handler)
+
+    code = asyncio.run(client.async_get_latest_submission("1", "python3"))
+
+    assert code == "class Solution: ..."
+    assert requests == [
+        "https://leetcode.com/api/problems/all/",
+        "https://leetcode.com/api/submissions/?offset=0&limit=20&lastkey=",
+    ]
+
+
+def test_get_latest_submission_reports_missing_history():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == "https://leetcode.com/api/problems/all/":
+            return httpx.Response(
+                200,
+                json={
+                    "stat_status_pairs": [
+                        {
+                            "stat": {
+                                "frontend_question_id": 1,
+                                "question__title_slug": "two-sum",
+                            }
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(200, json={"submissions_dump": [], "has_next": False, "last_key": ""})
+
+    client = make_client(handler)
+
+    with pytest.raises(LeetcodeAPIError, match="Could not find"):
+        client.get_latest_submission("1", "python3")
+
+
 def test_async_submit_question_polls_until_success(monkeypatch):
     requests = []
 

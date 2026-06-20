@@ -184,6 +184,38 @@ class LeetcodeClient:
 
         return data, True
 
+    def get_latest_submission(self, qid: str, language: str) -> str:
+        """Get the latest stored submission code for a question/language."""
+        return self._run_async(self.async_get_latest_submission(qid, language))
+
+    async def async_get_latest_submission(self, qid: str, language: str) -> str:
+        """Get the latest stored submission code without using stale LeetCode endpoints."""
+        try:
+            question_id = int(qid)
+        except ValueError as e:
+            raise LeetcodeAPIError(f'Question id "{qid}" is not numeric.') from e
+
+        id_title_map = await self.async_get_id_title_map()
+        title_slug = id_title_map.id_to_title.get(question_id)
+        if not title_slug:
+            raise LeetcodeAPIError(f'LeetCode problem list did not include question "{qid}".')
+
+        has_next = True
+        last_key = ""
+        offset = 0
+        while has_next:
+            submissions = await self.async_get_submission_list(last_key, offset)
+            for submission in submissions.submissions_dump:
+                if submission.title_slug == title_slug and submission.lang == language:
+                    return submission.code
+            has_next = submissions.has_next
+            last_key = submissions.last_key
+            offset += 20
+
+        raise LeetcodeAPIError(
+            f'Could not find a "{language}" submission for question "{qid}" in LeetCode history.'
+        )
+
     def scrap_question_data(self, question_name: str) -> QuestionDataResponse:
         """Query question information using the async HTTP implementation."""
         return self._run_async(self.async_scrap_question_data(question_name))
