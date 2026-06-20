@@ -39,7 +39,7 @@ jobs:
         git config user.email "yurirocha15@gmail.com"
         git config user.name "Yuri Rocha"
         git add src/leet2git/version.py
-        git commit -m "bump version to ${{ steps.bump_version.outputs.new_tag }}"
+        git diff --cached --quiet || git commit -m "bump version to ${{ steps.bump_version.outputs.new_tag }}"
     - name: Push to protected branch
       if: ${{ steps.bump_version.outputs.new_tag != steps.bump_version.outputs.tag }}
       uses: CasperWA/push-protected@v2.16.0

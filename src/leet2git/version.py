@@ -11,7 +11,7 @@ import sys
 
 from pydantic import BaseModel, ValidationError, field_validator
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 
 
 class VersionString(BaseModel):
