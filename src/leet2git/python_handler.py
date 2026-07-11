@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 import tokenize
+from pathlib import Path
 
 import click
 from autoimport import fix_files
@@ -29,16 +30,6 @@ class PythonHandler(FileHandler):
         self.question_data: QuestionData = QuestionData()
         self.config: AppConfig = AppConfig()
 
-    def set_data(self, question_data: QuestionData, config: AppConfig):
-        """Sets the data needed to generate the files
-
-        Args:
-            question_data (QuestionData): the question data
-            config (Dict[str, Any]): the app configuration
-        """
-        self.question_data = question_data
-        self.config = config
-
     def get_function_name(self) -> list[str]:
         """Returns the function name
 
@@ -48,46 +39,27 @@ class PythonHandler(FileHandler):
         functions = self._get_template_callables(self.question_data.question_template)
         if not functions:
             raise ValueError("Could not find a Python function in the LeetCode code template.")
-        self.question_data.function_name = functions
         return functions
 
-    def generate_source(self) -> str:
+    def generate_source(self) -> Path:
         """Generates the source file
 
         Returns:
-            str: the path to the test file
+            Path: the path to the generated source file
         """
-        comment: str = self.conversions[self.question_data.language]["comment"]
-        extension: str = self.conversions[self.question_data.language]["extension"]
-        description = (
-            [comment + " " + line + "\n" for line in self.question_data.description]
-            if self.config.source_code.add_description
-            else []
-        )
-        lines: list[str] = (
-            [
-                comment + f" @l2g {self.question_data.id} {self.question_data.language}\n",
-                comment + f" [{self.question_data.id}] {self.question_data.title}\n",
-                comment + f" Difficulty: {self.question_data.difficulty}\n",
-                comment + f" {self.question_data.url}\n",
-                comment + "\n",
-            ]
-            + description
-            + [
-                "\n",
-                "\n",
-            ]
-        )
+        comment, extension, lines = self._build_source_header()
         code, is_solution = (
             (self.question_data.raw_code, True)
             if self.question_data.raw_code
             else (self.question_data.question_template, False)
         )
         code_lines = self.parse_raw_code(code, is_solution)
+        if self.question_data.language == "python3":
+            code_lines = self._ensure_future_annotations(code_lines)
         lines.extend(code_lines)
-        self.question_data.file_path += extension
+        file_path = self.question_data.file_path + extension
 
-        full_path: str = os.path.join(self.config.source_path, self.question_data.file_path)
+        full_path: str = os.path.join(self.config.source_path, file_path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
         with open(full_path, "w", encoding="UTF8") as f:
@@ -97,7 +69,7 @@ class PythonHandler(FileHandler):
         with open(full_path, "r+", encoding="UTF8") as f:
             fix_files((f,))
 
-        if self.config.test_code.generate_tests:
+        if self.config.test_code.generate_tests and not self.question_data.requires_custom_test_harness:
             with open(full_path, "a", encoding="UTF8") as f:
                 f.write("\n")
                 f.write("\n")
@@ -111,7 +83,22 @@ class PythonHandler(FileHandler):
 
         self.run_formatter(full_path)
 
-        return self.question_data.file_path
+        return Path(file_path)
+
+    def remove_test_entrypoint(self) -> None:
+        """Remove the generated pytest launcher after local test generation fails."""
+        full_path = os.path.join(self.config.source_path, self.question_data.file_path)
+        try:
+            with open(full_path, encoding="UTF8") as file:
+                source = file.read()
+            tree = ast.parse(source)
+            main_line = self._find_main_block_line(tree)
+            if main_line is None:
+                return
+            with open(full_path, "w", encoding="UTF8") as file:
+                file.write("".join(source.splitlines(keepends=True)[: main_line - 1]))
+        except (OSError, SyntaxError) as error:
+            click.secho(f"Could not remove the local test entrypoint: {error}", fg="yellow")
 
     def generate_tests(self) -> str:
         """Generates the test file
@@ -119,28 +106,21 @@ class PythonHandler(FileHandler):
         Returns:
             str: the path to the test file
         """
-        extension: str = self.conversions[self.question_data.language]["extension"]
-        self.question_data.inputs = [
+        from leet2git.file_handler import LANGUAGE_CONVERSIONS
+
+        extension: str = LANGUAGE_CONVERSIONS[self.question_data.language]["extension"]
+        inputs = [
             s.replace("null", "None").replace("true", "True").replace("false", "False")
             for s in self.question_data.inputs
         ]
-        self.question_data.outputs = [
+        outputs = [
             s.replace("null", "None").replace("true", "True").replace("false", "False")
             for s in self.question_data.outputs
         ]
-        inputs = self.question_data.inputs
-        outputs = self.question_data.outputs
+        design_cases: list[tuple[list[str], list[list[object]], list[object]]] = []
         if len(self.question_data.function_name) > 1:
-            inputs = []
-            outputs = []
-            for q_input, q_output in zip(
-                self.question_data.inputs, self.question_data.outputs, strict=True
-            ):
-                tmp_inputs = q_input.split(", ")
-                inputs.append([])
-                for tmp_input in tmp_inputs:
-                    inputs[-1].append(ast.literal_eval(tmp_input))
-                outputs.append(ast.literal_eval(q_output))
+            for q_input, q_output in zip(inputs, outputs, strict=True):
+                design_cases.append(self._parse_design_case(q_input, q_output))
         elif not self.question_data.function_name:
             raise ValueError("No function name")
         full_path: str = os.path.join(
@@ -167,31 +147,25 @@ class PythonHandler(FileHandler):
             if len(self.question_data.function_name) == 1:
                 f.write(f"    from src.{self.question_data.file_path[4:-3]} import Solution\n")
                 f.write("    solution = Solution()\n")
+                f.write("\n")
+                f.write(f"    def _init_variables_{self.question_data.id}():\n")
+                f.write("        return solution\n")
             else:
-                try:
-                    f.write(
-                        f"    from src.{self.question_data.file_path[4:-3]} \
-                            import {self.question_data.function_name[0]}\n"
-                    )
-                    f.write(
-                        f"    solution = {self.question_data.function_name[0]}\
-                            ({str(inputs[0][1][0])[1:-1]})\n"
-                    )
-                # if we meet a question with some wild inputs
-                except ValueError as e:
-                    print(e.args)
-                    print(self.question_data)
-            f.write("\n")
-            f.write(f"    def _init_variables_{self.question_data.id}():\n")
-            f.write("        return solution\n")
+                constructor = self.question_data.function_name[0]
+                f.write(f"    from src.{self.question_data.file_path[4:-3]} import {constructor}\n")
+                f.write("\n")
+                f.write(f"    def _init_variables_{self.question_data.id}(*args):\n")
+                f.write(f"        return {constructor}(*args)\n")
             f.write("\n")
             f.write(f"    yield _init_variables_{self.question_data.id}\n")
             f.write("\n")
             f.write(f"class TestClass{self.question_data.id}:")
-            for i, (q_input, q_output) in enumerate(zip(inputs, outputs, strict=True)):
-                f.write("\n")
-                f.write(f"    def test_solution_{i}(self, init_variables_{self.question_data.id}):\n")
-                if len(self.question_data.function_name) == 1:
+            if len(self.question_data.function_name) == 1:
+                for i, (q_input, q_output) in enumerate(zip(inputs, outputs, strict=True)):
+                    f.write("\n")
+                    f.write(
+                        f"    def test_solution_{i}(self, init_variables_{self.question_data.id}):\n"
+                    )
                     f.write(
                         "        assert"
                         + (" not" if q_output == "False" else "")
@@ -200,22 +174,67 @@ class PythonHandler(FileHandler):
                         + (f" == {q_output}" if q_output not in ["True", "False"] else "")
                         + "\n"
                     )
-                else:
+            else:
+                for i, (method_names, method_inputs, expected_outputs) in enumerate(design_cases):
+                    f.write("\n")
+                    f.write(
+                        f"    def test_solution_{i}(self, init_variables_{self.question_data.id}):\n"
+                    )
+                    constructor_args = ", ".join(repr(value) for value in method_inputs[0])
+                    f.write(
+                        f"        solution = init_variables_{self.question_data.id}"
+                        f"({constructor_args})\n"
+                    )
                     for input_func, input_val, output in zip(
-                        q_input[0][1:], q_input[1][1:], q_output[1:], strict=True
+                        method_names[1:],
+                        method_inputs[1:],
+                        expected_outputs[1:],
+                        strict=True,
                     ):
-                        f.write(
-                            "        assert"
-                            + (" not" if output == "False" else "")
-                            + f" init_variables_{self.question_data.id}().\
-                                {input_func}({str(input_val)[1:-1]})"
-                            + (f" == {output}" if output not in ["True", "False"] else "")
-                            + "\n"
-                        )
+                        arguments = ", ".join(repr(value) for value in input_val)
+                        call = f"solution.{input_func}({arguments})"
+                        f.write("        " + self._build_assertion(call, output) + "\n")
 
         self.run_formatter(full_path)
 
         return os.path.join("tests", f"test_{self.question_data.id}{extension}")
+
+    def _parse_design_case(
+        self, raw_input: str, raw_output: str
+    ) -> tuple[list[str], list[list[object]], list[object]]:
+        """Parse one LeetCode design-problem example into methods, arguments, and outputs."""
+        try:
+            parsed_input = ast.literal_eval(f"({raw_input})")
+            parsed_output = ast.literal_eval(raw_output)
+        except (SyntaxError, ValueError) as e:
+            raise ValueError("Could not parse the design-problem example data.") from e
+
+        if not isinstance(parsed_input, tuple) or len(parsed_input) != 2:
+            raise ValueError("Design-problem input must contain method and argument lists.")
+        method_names, method_inputs = parsed_input
+        if (
+            not isinstance(method_names, list)
+            or not all(isinstance(name, str) for name in method_names)
+            or not isinstance(method_inputs, list)
+            or not all(isinstance(arguments, list) for arguments in method_inputs)
+            or not isinstance(parsed_output, list)
+        ):
+            raise ValueError("Design-problem example data has an unexpected shape.")
+        if not method_names or not (len(method_names) == len(method_inputs) == len(parsed_output)):
+            raise ValueError("Design-problem method, argument, and output counts must match.")
+
+        return method_names, method_inputs, parsed_output
+
+    @staticmethod
+    def _build_assertion(call: str, expected: object) -> str:
+        """Build a valid pytest assertion for a generated design-problem method call."""
+        if expected is True:
+            return f"assert {call}"
+        if expected is False:
+            return f"assert not {call}"
+        if expected is None:
+            return f"assert {call} is None"
+        return f"assert {call} == {expected!r}"
 
     def generate_submission_file(self) -> str:
         """Generates the submission file
@@ -223,9 +242,12 @@ class PythonHandler(FileHandler):
         Returns:
             str: a string containing the code
         """
-        full_path: str = os.path.join(self.config.source_path, self.question_data.file_path)
-        with open(full_path, encoding="UTF8") as f:
-            source = f.read()
+        full_path = os.path.join(self.config.source_path, self.question_data.file_path)
+        try:
+            with open(full_path, encoding="UTF8") as f:
+                source = f.read()
+        except OSError as e:
+            raise click.ClickException(f"Failed to read source file: {e}") from e
 
         try:
             tree = ast.parse(source)
@@ -238,7 +260,7 @@ class PythonHandler(FileHandler):
 
         return "".join(source.splitlines(keepends=True)[: main_line - 1])
 
-    def generate_repo(self, folder_path: str):
+    def generate_repo(self, folder_path: str) -> None:
         """Generates a git repository
 
         Args:
@@ -271,6 +293,43 @@ class PythonHandler(FileHandler):
             lines.append("")
 
         return lines
+
+    @staticmethod
+    def _ensure_future_annotations(code_lines: list[str]) -> list[str]:
+        """Defer Python 3 annotations while preserving docstrings and existing future imports."""
+        try:
+            tree = ast.parse("".join(code_lines))
+        except SyntaxError:
+            return code_lines
+
+        if any(
+            isinstance(node, ast.ImportFrom)
+            and node.module == "__future__"
+            and any(name.name == "annotations" for name in node.names)
+            for node in tree.body
+        ):
+            return code_lines
+
+        insertion_line = 0
+        body_index = 0
+        if (
+            tree.body
+            and isinstance(tree.body[0], ast.Expr)
+            and isinstance(tree.body[0].value, ast.Constant)
+            and isinstance(tree.body[0].value.value, str)
+        ):
+            insertion_line = tree.body[0].end_lineno or tree.body[0].lineno
+            body_index = 1
+
+        for node in tree.body[body_index:]:
+            if not isinstance(node, ast.ImportFrom) or node.module != "__future__":
+                break
+            insertion_line = node.end_lineno or node.lineno
+
+        future_lines = ["from __future__ import annotations\n"]
+        if insertion_line >= len(code_lines) or code_lines[insertion_line].strip():
+            future_lines.append("\n")
+        return code_lines[:insertion_line] + future_lines + code_lines[insertion_line:]
 
     def _get_template_callables(self, source: str) -> list[str]:
         """Return callable names from a Python LeetCode template."""

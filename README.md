@@ -222,6 +222,21 @@ The path to the code repository
 
 - generate_tests: If true, will try to generate local test files for the question. Currently only python3 is supported.
 
+## Limitations
+
+leet2git imports the problem description and source template whenever those are available, even when it cannot safely generate a local test file. These test-generation limitations are reported as soft errors and do not cancel the source import.
+
+Local tests are currently skipped for:
+
+- Problems that depend on judge-provided objects such as `TreeNode`, `ListNode`, or `NestedInteger`.
+- Interactive problems that call a hidden LeetCode oracle.
+- Concurrency problems that require LeetCode's scheduler or callback harness.
+- Problems whose examples use custom or in-place output validation, such as checking a mutated array prefix instead of only a return value.
+- Problems whose example inputs or outputs cannot be parsed into a reliable generic assertion.
+
+If LeetCode does not provide a source snippet for the selected language, there is no source file to import. This is common for language-specific problems such as SQL or JavaScript exercises when `python3` is selected.
+
+Authentication failures, network or LeetCode API errors, and local source-file write errors can still prevent an import because no usable source file can be produced.
 
 ## Language Support
 

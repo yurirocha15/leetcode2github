@@ -1,0 +1,133 @@
+name: Import failure
+description: Report a problem fetching a LeetCode question or generating its local files
+title: "[Import failure]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting an import problem.
+
+        **Do not include browser cookies, `LEETCODE_SESSION`, CSRF tokens, personal solution code, or unredacted local paths.** Replace usernames and private directories with placeholders such as `<user>` or `<repo>`.
+
+  - type: dropdown
+    id: operation
+    attributes:
+      label: Operation
+      description: Which operation failed?
+      options:
+        - leet2git get
+        - leet2git import-all
+        - Source-file generation
+        - Test-file generation
+        - Other import-related operation
+    validations:
+      required: true
+
+  - type: input
+    id: problems
+    attributes:
+      label: LeetCode problem
+      description: Provide the public problem number and slug or URL. List every affected problem if there is more than one.
+      placeholder: "2917 — find-the-k-or-of-an-array"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: leet2git version
+      description: Paste the package version from `leet2git --version`.
+      placeholder: "leet2git 0.3.0"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: Paste the output of `python --version` or `uv run python --version`.
+      placeholder: "Python 3.11.13"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: LeetCode language
+      options:
+        - python3
+        - python
+        - javascript
+        - java
+        - cpp
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: Show the exact command after redacting private paths. Do not include cookie or token values.
+      placeholder: "leet2git --source-repository <repo> get 2917"
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: Include the complete error message and what files, if any, were generated. Redact usernames and private paths.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe the files or outcome you expected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest reliable sequence that reproduces the problem, including whether it happens repeatedly.
+      placeholder: |
+        1. Log in to LeetCode in a supported local browser.
+        2. Run `leet2git ...`.
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add sanitized logs, screenshots, or relevant configuration flags. Do not attach generated personal solutions or authentication data.
+
+  - type: checkboxes
+    id: safety-checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: I removed cookies, session values, CSRF tokens, personal solution code, and unredacted private paths.
+          required: true
+        - label: I searched existing issues for this problem number or error message.
+          required: true

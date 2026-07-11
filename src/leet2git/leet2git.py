@@ -7,6 +7,7 @@ Authors:
 import glob
 import os
 import time
+from collections.abc import Mapping
 from multiprocessing import Process
 from multiprocessing.managers import SyncManager
 
@@ -14,15 +15,15 @@ import click
 from click.core import Context
 from click.exceptions import Abort
 
-from leet2git.config_manager import ConfigManager, ConfigOverrides
-from leet2git.file_handler import create_file_handler, generate_files
-from leet2git.leetcode_client import LeetcodeAPIError, LeetcodeAuthError, LeetcodeClient
-from leet2git.my_utils import (
+from leet2git.cli_helpers import (
     get_question_id,
     mgr_init,
     reset_config,
     wait_to_finish_download,
 )
+from leet2git.config_manager import ConfigManager, ConfigOverrides
+from leet2git.file_handler import create_file_handler, generate_files
+from leet2git.leetcode_client import LeetcodeAPIError, LeetcodeAuthError, LeetcodeClient
 from leet2git.question_db import QuestionData, QuestionDB
 from leet2git.readme_handler import ReadmeHandler
 from leet2git.version import version_info
@@ -47,9 +48,9 @@ from leet2git.version import version_info
 @click.pass_context
 def leet2git(
     ctx: Context,
-    source_repository: str | None = "",
-    language: str | None = "",
-):
+    source_repository: str = "",
+    language: str = "",
+) -> None:
     """Leet2Git App
     \f
     Args:
@@ -70,7 +71,7 @@ def leet2git(
 @leet2git.command()
 @click.argument("question-id", type=int)
 @click.pass_obj
-def get(cm: ConfigManager, question_id: int):
+def get(cm: ConfigManager, question_id: int) -> None:
     """Generates all the files for a question
 
     Args:
@@ -90,9 +91,8 @@ def get(cm: ConfigManager, question_id: int):
 
         # get question data
         args: dict[int, QuestionData] = {}
-        generate_files(
-            args, question_id, qdb.get_title_from_id(question_id), lc, time.time(), cm.config
-        )
+        title_slug = qdb.get_title_from_id(question_id) or ""
+        generate_files(args, question_id, title_slug, lc, time.time(), cm.config)
     except (LeetcodeAPIError, LeetcodeAuthError) as e:
         click.secho(str(e), fg="red")
         return
@@ -104,13 +104,13 @@ def get(cm: ConfigManager, question_id: int):
 
         # update readme
         rh = ReadmeHandler(cm.config)
-        rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
+        rh.build_readme(qdb.get_questions_sorted_by_creation_time())
 
 
 @leet2git.command()
 @click.argument("question-id", type=int)
 @click.pass_obj
-def submit(cm: ConfigManager, question_id: int):
+def submit(cm: ConfigManager, question_id: int) -> None:
     """Submit a question to Leetcode
 
     Args:
@@ -129,9 +129,7 @@ def submit(cm: ConfigManager, question_id: int):
 
     try:
         lc = LeetcodeClient()
-        title_slug = (
-            question_data.title_slug if question_data.title_slug else qdb.get_title_from_id(question_id)
-        )
+        title_slug = question_data.title_slug or qdb.get_title_from_id(question_id) or ""
         lc.submit_question(code, question_data.internal_id, title_slug, cm.config.language)
     except (LeetcodeAPIError, LeetcodeAuthError) as e:
         click.secho(str(e), fg="red")
@@ -140,7 +138,7 @@ def submit(cm: ConfigManager, question_id: int):
 @leet2git.command()
 @click.argument("question-id", type=int)
 @click.pass_obj
-def run(cm: ConfigManager, question_id: int):
+def run(cm: ConfigManager, question_id: int) -> None:
     """Run a question on Leetcode Servers
 
     Args:
@@ -159,10 +157,8 @@ def run(cm: ConfigManager, question_id: int):
 
     try:
         lc = LeetcodeClient()
-        title_slug = (
-            question_data.title_slug if question_data.title_slug else qdb.get_title_from_id(question_id)
-        )
-        raw_inputs = "\n".join(["\n".join(i.split(", ")) for i in question_data.inputs])
+        title_slug = question_data.title_slug or qdb.get_title_from_id(question_id) or ""
+        raw_inputs = question_data.to_wire_inputs()
         lc.submit_question(
             code,
             question_data.internal_id,
@@ -177,7 +173,7 @@ def run(cm: ConfigManager, question_id: int):
 
 @leet2git.command()
 @click.pass_obj
-def import_all(cm: ConfigManager):
+def import_all(cm: ConfigManager) -> None:
     """Get all solutions and generate their files"""
     qdb: QuestionDB = QuestionDB(cm.config)
     qdb.load()
@@ -186,19 +182,22 @@ def import_all(cm: ConfigManager):
     offset: int = 0
     imported_cnt = 0
     manager: SyncManager | None = None
+    jobs: list[Process] = []
+    ret_dict: Mapping[object, QuestionData] | None = None
 
     try:
         lc = LeetcodeClient()
         while has_next:
-            jobs: list[Process] = []
+            jobs = []
             manager = SyncManager()
             manager.start(mgr_init)
             ret_dict = manager.dict()
             submissions = lc.get_submission_list(last_key, offset)
             for submission in submissions.submissions_dump:
-                qid: int = get_question_id(submission.title_slug, qdb, lc)
+                qid = get_question_id(submission.title_slug, qdb, lc)
                 if (
-                    submission.status_display == "Accepted"
+                    qid is not None
+                    and submission.status_display == "Accepted"
                     and submission.lang == cm.config.language
                     and not qdb.check_if_exists(qid)
                 ):
@@ -230,7 +229,8 @@ def import_all(cm: ConfigManager):
                 time.sleep(1)
     except KeyboardInterrupt:
         click.secho("Stopping the process...")
-        imported_cnt += wait_to_finish_download(jobs, ret_dict, qdb)
+        if ret_dict is not None:
+            imported_cnt += wait_to_finish_download(jobs, ret_dict, qdb)
     except (LeetcodeAPIError, LeetcodeAuthError, ValueError) as e:
         click.secho(str(e), fg="red")
     finally:
@@ -240,7 +240,7 @@ def import_all(cm: ConfigManager):
     qdb.save()
     # update readme
     rh = ReadmeHandler(cm.config)
-    rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
+    rh.build_readme(qdb.get_questions_sorted_by_creation_time())
 
     click.secho(f"In total, {imported_cnt} questions were imported!")
 
@@ -248,7 +248,7 @@ def import_all(cm: ConfigManager):
 @leet2git.command()
 @click.argument("question-id", type=int)
 @click.pass_obj
-def delete(cm: ConfigManager, question_id: int):
+def delete(cm: ConfigManager, question_id: int) -> None:
     """Delete a question and its files
 
     Args:
@@ -263,12 +263,12 @@ def delete(cm: ConfigManager, question_id: int):
             if data.test_file_path:
                 os.remove(os.path.join(cm.config.source_path, data.test_file_path))
         except FileNotFoundError as e:
-            click.secho(e.args)
+            click.secho(str(e), fg="red")
         qdb.delete_question(question_id)
         qdb.save()
         # update readme
         rh = ReadmeHandler(cm.config)
-        rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
+        rh.build_readme(qdb.get_questions_sorted_by_creation_time())
         click.secho(f"The question {question_id} was removed.")
     else:
         click.secho(f"The question {question_id} could not be found!")
@@ -281,7 +281,7 @@ def delete(cm: ConfigManager, question_id: int):
 @click.option("--language", "-l", default="python3", help="the default language")
 @click.option("--create-repo", "-c", is_flag=True, help="generates a git repository")
 @click.pass_obj
-def init(cm: ConfigManager, source_repository: str, language: str, create_repo: bool):
+def init(cm: ConfigManager, source_repository: str, language: str, create_repo: bool) -> None:
     """Creates a new configuration file and can generate a git repository.
     \f
     Args:
@@ -309,7 +309,7 @@ def init(cm: ConfigManager, source_repository: str, language: str, create_repo: 
     help="A soft reset only erases the database. A hard reset also erase the files.",
 )
 @click.pass_obj
-def reset(cm: ConfigManager, source_repository: str, language: str, soft: bool):
+def reset(cm: ConfigManager, source_repository: str, language: str, soft: bool) -> None:
     """Reset the configuration file
     \f
     Args:
@@ -337,7 +337,7 @@ def reset(cm: ConfigManager, source_repository: str, language: str, soft: bool):
             try:
                 os.remove(file)
             except FileNotFoundError as e:
-                click.secho(e.args)
+                click.secho(str(e), fg="red")
 
     else:
         try:

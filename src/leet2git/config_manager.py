@@ -93,8 +93,11 @@ class ConfigManager:
         """
         if not override_config:
             override_config = ConfigOverrides()
-        with open(self._config_file) as file:
-            config = AppConfig.model_validate_json(file.read())
+        try:
+            with open(self._config_file) as file:
+                config = AppConfig.model_validate_json(file.read())
+        except (OSError, ValueError) as e:
+            raise click.ClickException(f"Failed to load config: {e}") from e
         self._config = config.model_copy(
             update={
                 "legacy_data_path": self._legacy_data_path,
@@ -102,7 +105,7 @@ class ConfigManager:
             }
         )
 
-    def reset_config(self, repo_path: str, language: str = "python3", edit: bool = True):
+    def reset_config(self, repo_path: str, language: str = "python3", edit: bool = True) -> None:
         """Resets the config and open it on the default editor
 
         Args:

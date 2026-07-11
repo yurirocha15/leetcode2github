@@ -1,25 +1,61 @@
 """
-My util functions
+CLI helper functions
 Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
 
 import os
 import signal
-from collections.abc import Mapping
-from multiprocessing import Process
+from collections.abc import Iterable, Mapping
+from typing import Protocol
 
-from leet2git.config_manager import ConfigManager
-from leet2git.leetcode_client import LeetcodeClient
-from leet2git.question_db import QuestionData, QuestionDB
+from leet2git.question_db import IdTitleMap, QuestionData
 
 
-def mgr_init():
+class _SourceConfig(Protocol):
+    source_path: str
+
+
+class _ConfigManager(Protocol):
+    @property
+    def config(self) -> _SourceConfig: ...
+
+    def reset_config(self, repo_path: str, language: str, /) -> None: ...
+
+
+class _QuestionMap(Protocol):
+    def check_if_id_is_known(self, slug: str, /) -> bool: ...
+
+    def set_id_title_map(self, id_title_map: IdTitleMap, /) -> None: ...
+
+    def save(self) -> None: ...
+
+    def get_id_from_title(self, slug: str, /) -> int | None: ...
+
+
+class _IdTitleMapClient(Protocol):
+    def get_id_title_map(self) -> IdTitleMap: ...
+
+
+class _Joinable(Protocol):
+    def join(self) -> object: ...
+
+
+class _QuestionSink(Protocol):
+    def add_question(self, question: QuestionData, /) -> None: ...
+
+
+def mgr_init() -> None:
     """initializer for SyncManager"""
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
-def reset_config(cm: ConfigManager, source_repository: str, language: str, load_old: bool = True):
+def reset_config(
+    cm: _ConfigManager,
+    source_repository: str,
+    language: str,
+    load_old: bool = True,
+) -> None:
     """Reset the configuration file
 
     Args:
@@ -35,8 +71,12 @@ def reset_config(cm: ConfigManager, source_repository: str, language: str, load_
     cm.reset_config(source_repository, language)
 
 
-def get_question_id(title_slug: str, qdb: QuestionDB, lc: LeetcodeClient) -> int:
-    """Get the question ID give the title slug
+def get_question_id(
+    title_slug: str,
+    qdb: _QuestionMap,
+    lc: _IdTitleMapClient,
+) -> int | None:
+    """Get the question id from the title
 
     Args:
         title_slug (str): the title slug
@@ -44,20 +84,18 @@ def get_question_id(title_slug: str, qdb: QuestionDB, lc: LeetcodeClient) -> int
         lc (LeetcodeClient): the leetcode client
 
     Returns:
-        int: the question id
+        int | None: the question id, or None if not found
     """
-    qid: int = -1
-    if qdb.check_if_id_is_known(title_slug):
-        qid = qdb.get_id_from_title(title_slug)
-    else:
+    if not qdb.check_if_id_is_known(title_slug):
         qdb.set_id_title_map(lc.get_id_title_map())
         qdb.save()
-        qid = qdb.get_id_from_title(title_slug)
-    return qid
+    return qdb.get_id_from_title(title_slug)
 
 
 def wait_to_finish_download(
-    jobs: list[Process], ret_dict: Mapping[object, QuestionData], qdb: QuestionDB
+    jobs: Iterable[_Joinable],
+    ret_dict: Mapping[object, QuestionData],
+    qdb: _QuestionSink,
 ) -> int:
     """Wait until every subprocess finishes
 

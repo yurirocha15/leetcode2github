@@ -4,7 +4,16 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from leet2git.question_db import TopicTag
+
+class TopicTag(BaseModel):
+    """LeetCode topic metadata attached to a question."""
+
+    model_config = ConfigDict(populate_by_name=True, validate_assignment=True)
+
+    name: str = ""
+    slug: str = ""
+    translated_name: str | None = Field(default=None, alias="translatedName")
+    typename: str | None = Field(default=None, alias="__typename")
 
 
 class QuestionDataVariables(BaseModel):
@@ -48,6 +57,7 @@ class QuestionPayload(BaseModel):
     sample_test_case: str = Field(alias="sampleTestCase")
     topic_tags: list[TopicTag] = Field(alias="topicTags")
     code_snippets: list[CodeSnippet] = Field(alias="codeSnippets")
+    meta_data: str | None = Field(default=None, alias="metaData")
 
 
 class QuestionDataBody(BaseModel):
@@ -91,10 +101,18 @@ class ProblemStat(BaseModel):
     question_title_slug: str = Field(alias="question__title_slug")
 
 
+class ProblemDifficulty(BaseModel):
+    """Numeric difficulty metadata in the public problem catalog."""
+
+    level: int = 0
+
+
 class ProblemStatusPair(BaseModel):
     """Problem list row."""
 
     stat: ProblemStat
+    difficulty: ProblemDifficulty = Field(default_factory=ProblemDifficulty)
+    paid_only: bool = False
 
 
 class ProblemListResponse(BaseModel):

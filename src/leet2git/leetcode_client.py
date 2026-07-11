@@ -5,8 +5,9 @@ Authors:
 """
 
 import asyncio
+import json
 import os
-import platform
+import re
 import textwrap
 import time
 from collections.abc import Coroutine
@@ -32,13 +33,58 @@ from leet2git.leetcode_models import (
     SubmitSolutionResponse,
 )
 from leet2git.question_db import IdTitleMap, QuestionData
+from leet2git.test_harness import get_local_test_limitation
 
 LEETCODE_COOKIE_DOMAINS = {"leetcode.com", ".leetcode.com"}
 USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
 )
+_QUESTION_DATA_QUERY = """query questionData($titleSlug: String) {
+  question(titleSlug: $titleSlug) {
+    questionId
+    questionFrontendId
+    title
+    titleSlug
+    content
+    isPaidOnly
+    difficulty
+    likes
+    dislikes
+    exampleTestcases
+    topicTags {
+      name
+      slug
+      translatedName
+      __typename
+    }
+    codeSnippets {
+      lang
+      langSlug
+      code
+      __typename
+    }
+    stats
+    hints
+    solution {
+      id
+      canSeeDetail
+      paidOnly
+      hasVideoSolution
+      paidOnlyVideo
+      __typename
+    }
+    status
+    sampleTestCase
+    metaData
+    __typename
+  }
+}
+"""
+_QUESTION_FETCH_RETRY_DELAY_SECONDS = 1.0
+_RETRYABLE_QUESTION_FETCH_STATUSES = frozenset({404, 500, 502, 503, 504})
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
+T = TypeVar("T")
 
 
 class LeetcodeAuthError(RuntimeError):
@@ -57,16 +103,11 @@ class LeetcodeClient:
         *,
         transport: httpx.AsyncBaseTransport | None = None,
         timeout: float = 30.0,
+        use_browser_cookies: bool = True,
     ):
-        os_name = platform.system()
-        if os_name in ["Linux", "Darwin"]:
-            self.divider = "/"
-        elif os_name == "Windows":
-            self.divider = "\\"
-
         self._transport = transport
         self._timeout = timeout
-        self.cookies, self.csrftoken = self.get_cookies()
+        self.cookies, self.csrftoken = self.get_cookies() if use_browser_cookies else ("", "")
 
     def get_cookies(self) -> tuple[str, str]:
         """Get the cookies from the browser
@@ -83,9 +124,9 @@ class LeetcodeClient:
                 click.secho(e.args, fg="red")
                 continue
 
-            leetcode_cookies = self._get_leetcode_cookies(cookie_jar)
-            if self._has_cookie(leetcode_cookies, "LEETCODE_SESSION"):
-                return self._build_cookie_header(leetcode_cookies), self._get_cookie_value(
+            leetcode_cookies = _get_leetcode_cookies(cookie_jar)
+            if _has_cookie(leetcode_cookies, "LEETCODE_SESSION"):
+                return _build_cookie_header(leetcode_cookies), _get_cookie_value(
                     leetcode_cookies, "csrftoken"
                 )
 
@@ -111,23 +152,24 @@ class LeetcodeClient:
             "referer": "https://leetcode.com",
             "origin": "https://leetcode.com",
             "user-agent": USER_AGENT,
-            "cookie": self.cookies,
         }
+        if self.cookies:
+            headers["cookie"] = self.cookies
         if self.csrftoken:
             headers["x-csrftoken"] = self.csrftoken
 
         return headers
 
     def get_question_data(
-        self, question_id: int, title_slug: str, language: str, code: str | None = ""
-    ) -> tuple[QuestionData, bool]:
+        self, question_id: int, title_slug: str, language: str, code: str = ""
+    ) -> QuestionData:
         """Gets the data from a question
 
         Args:
             question_id (int): the question id
             title_slug (str): the question title
-            language str: the language to download the code
-            code (Optional[str]): the question solution
+            language (str): the language to download the code
+            code (str | None): the question solution
 
         Returns:
             QuestionData: The data needed to generate the question files
@@ -144,35 +186,10 @@ class LeetcodeClient:
         data.difficulty = question.difficulty
         data.question_template = self._get_code_snippet(question, language)
         data.categories = question.topic_tags
+        data.requires_custom_test_harness = _requires_custom_test_harness(question.meta_data)
+        data.requires_custom_test_harness = bool(get_local_test_limitation(data))
 
-        soup = BeautifulSoup(question.content, features="html.parser")
-        for sup in soup.find_all("sup"):
-            sup.string = "^" + sup.get_text()
-        data.description = soup.get_text().replace("\r\n", "\n").split("\n")
-        sample_test_case = question.sample_test_case
-        example_test_cases = question.example_testcases
-        num_of_inputs = len(sample_test_case.split("\n"))
-        inputs = example_test_cases.split("\n")
-        data.inputs = [
-            ", ".join(inputs[i : i + num_of_inputs]) for i in range(0, len(inputs), num_of_inputs)
-        ]
-        tmp_description = []
-        example_started = False
-        for idx, line in enumerate(data.description):
-            stripped_line = line.strip()
-            if stripped_line.startswith("Example") and stripped_line.endswith(":"):
-                example_started = True
-            elif "Output: " in line and example_started:
-                data.outputs.append(line[8:])
-                example_started = False
-            elif line == "Output" and example_started:
-                data.outputs.append(data.description[idx + 1].strip())
-                example_started = False
-            if len(line) > 100:
-                tmp_description.extend(textwrap.wrap(line, width=100, break_long_words=False))
-            else:
-                tmp_description.append(line)
-        data.description = tmp_description
+        self._parse_question_content(question, data)
 
         data.file_path = os.path.join(
             "src",
@@ -182,7 +199,7 @@ class LeetcodeClient:
         if code:
             data.raw_code = code
 
-        return data, True
+        return data
 
     def get_latest_submission(self, qid: str, language: str) -> str:
         """Get the latest stored submission code for a question/language."""
@@ -224,54 +241,25 @@ class LeetcodeClient:
         """Query a question information
 
         Args:
-            question_name (str): the question slug (which is inside the leetcode url)
+             question_name (str): the question slug (which is inside the leetcode url)
 
         Returns:
-            Dict[str, Dict[str, Any]]: the categories information
+             QuestionDataResponse: the question information
         """
         url: str = "https://leetcode.com/graphql"
 
         payload = QuestionDataRequest(
             variables=QuestionDataVariables(titleSlug=question_name),
-            query="query questionData($titleSlug: String) {\n  question(titleSlug: $titleSlug) {\
-                \n    questionId\
-                \n    questionFrontendId\
-                \n    title\
-                \n    titleSlug\
-                \n    content\
-                \n    isPaidOnly\
-                \n    difficulty\
-                \n    likes\
-                \n    dislikes\
-                \n    exampleTestcases\
-                \n    topicTags {\
-                \n      name\
-                \n      slug\
-                \n      translatedName\
-                \n      __typename\
-                \n    }\
-                \n    codeSnippets {\
-                \n      lang\
-                \n      langSlug\
-                \n      code\
-                \n      __typename\
-                \n    }\
-                \n    stats\
-                \n    hints\
-                \n    solution {\
-                \n      id\
-                \n      canSeeDetail\
-                \n      paidOnly\
-                \n      hasVideoSolution\
-                \n      paidOnlyVideo\
-                \n      __typename\
-                \n    }\
-                \n    status\
-                \n    sampleTestCase\
-                \n    metaData\
-                \n    __typename\n  }\n}\n",
+            query=_QUESTION_DATA_QUERY,
         )
 
+        try:
+            return await self._request_json("POST", url, QuestionDataResponse, json_body=payload)
+        except LeetcodeAPIError as error:
+            if not _is_retryable_question_fetch(error):
+                raise
+
+        await asyncio.sleep(_QUESTION_FETCH_RETRY_DELAY_SECONDS)
         return await self._request_json("POST", url, QuestionDataResponse, json_body=payload)
 
     def submit_question(
@@ -282,16 +270,16 @@ class LeetcodeClient:
         language: str,
         is_test: bool = False,
         test_input: str = "",
-    ):
+    ) -> None:
         """Submit question to Leetcode
 
         Args:
-            code (str): the code which will be submitted
-            internal_id (int): the question "questionId". (different from "frontend_id")
-            title_slug (str): the question title slug
-            language (str): the language of the code
-            is_test (bool): if true, do not submit, only test on leetcode servers
-            test_input (str): input to test. Only used if is_test is True
+             code (str): the code which will be submitted
+             internal_id (int): the question "questionId". (different from "frontend_id")
+             title_slug (str): the question title slug
+             language (str): the language of the code
+             is_test (bool): if true, do not submit, only test on leetcode servers
+             test_input (str): input to test. Only used if is_test is True
         """
         self._run_async(
             self.async_submit_question(code, internal_id, title_slug, language, is_test, test_input)
@@ -320,8 +308,6 @@ class LeetcodeClient:
         if is_test:
             payload.data_input = test_input
             payload.judge_type = "large"
-
-        if is_test:
             submission_response = await self._request_json(
                 "POST",
                 url,
@@ -340,19 +326,24 @@ class LeetcodeClient:
         click.secho("Waiting for submission results...")
         url = f"https://leetcode.com/submissions/detail/{submission_id}/check/"
 
-        submission_result: SubmissionResultResponse | None = None
-        status: str = ""
+        submission_result = await self._request_json("GET", url, SubmissionResultResponse)
+        status = submission_result.state
         while status != "SUCCESS":
+            await asyncio.sleep(1)
             submission_result = await self._request_json("GET", url, SubmissionResultResponse)
             status = submission_result.state
-            await asyncio.sleep(1)
 
-        if submission_result is None:
-            raise LeetcodeAPIError("LeetCode did not return a submission result.")
+        self._display_submission_result(submission_result, submission_result.status_code, is_test)
 
+    def _display_submission_result(
+        self, submission_result: SubmissionResultResponse, status_code: int | None, is_test: bool
+    ) -> None:
+        """Display the formatted submission result to the user."""
         click.clear()
         click.secho(f"Result: {submission_result.status_msg or 'Unknown'}")
-        status_code = submission_result.status_code
+        if status_code is None:
+            click.secho("Submission status code unavailable.", fg="yellow")
+            return
         if status_code == 10:
             click.secho(
                 f"Total Runtime: {submission_result.status_runtime or 'unknown'} "
@@ -389,11 +380,11 @@ class LeetcodeClient:
         """Get a list with 20 submissions
 
         Args:
-            last_key (str, optional): the key of the last query. Defaults to "".
-            offset (int, optional): the offset (used to query older values). Defaults to 0.
+             last_key (str, optional): the key of the last query. Defaults to "".
+             offset (int, optional): the offset (used to query older values). Defaults to 0.
 
         Returns:
-            Dict[str, Any]: the query response
+             SubmissionListResponse: the query response
         """
         url: str = f"https://leetcode.com/api/submissions/?offset={offset}&limit=20&lastkey={last_key}"
 
@@ -411,16 +402,23 @@ class LeetcodeClient:
         """Get id/title mappings using the async HTTP implementation."""
         return self._run_async(self.async_get_id_title_map())
 
+    def get_problem_list(self) -> ProblemListResponse:
+        """Get the public LeetCode problem catalog."""
+        return self._run_async(self.async_get_problem_list())
+
+    async def async_get_problem_list(self) -> ProblemListResponse:
+        """Get the public LeetCode problem catalog asynchronously."""
+        url = "https://leetcode.com/api/problems/all/"
+        return await self._request_json("GET", url, ProblemListResponse)
+
     async def async_get_id_title_map(self) -> IdTitleMap:
         """Get a dictionary that maps the id to the question title slug
 
         Returns:
             IdTitleMap: maps the id to the title slug
         """
-        url: str = "https://leetcode.com/api/problems/all/"
-
         id_title_map: IdTitleMap = IdTitleMap()
-        response = await self._request_json("GET", url, ProblemListResponse)
+        response = await self.async_get_problem_list()
         for pair in response.stat_status_pairs:
             id_title_map.id_to_title[pair.stat.frontend_question_id] = pair.stat.question_title_slug
             id_title_map.title_to_id[pair.stat.question_title_slug] = pair.stat.frontend_question_id
@@ -460,12 +458,14 @@ class LeetcodeClient:
             except ValueError as e:
                 raise LeetcodeAPIError(f"LeetCode returned a non-JSON response: {url}") from e
 
+        _raise_for_leetcode_error(payload, url)
+
         try:
             return model_type.model_validate(payload)
         except ValidationError as e:
             raise LeetcodeAPIError(f"LeetCode returned unexpected JSON for {url}: {e}") from e
 
-    def _run_async(self, coroutine: Coroutine[Any, Any, Any]) -> Any:
+    def _run_async(self, coroutine: Coroutine[Any, Any, T]) -> T:
         """Run an async client method from synchronous Click commands."""
         try:
             asyncio.get_running_loop()
@@ -492,21 +492,193 @@ class LeetcodeClient:
                 return snippet.code
         raise LeetcodeAPIError(f'LeetCode did not return a "{language}" code snippet.')
 
-    def _get_leetcode_cookies(self, cookie_jar: CookieJar) -> list[Cookie]:
-        """Return browser cookies scoped to LeetCode."""
-        return [cookie for cookie in cookie_jar if cookie.domain in LEETCODE_COOKIE_DOMAINS]
+    def _parse_question_content(self, question: QuestionPayload, data: QuestionData) -> None:
+        """Parse HTML content and extract description and test outputs from question payload."""
+        soup = BeautifulSoup(question.content, features="html.parser")
+        for sup in soup.find_all("sup"):
+            sup.string = "^" + sup.get_text()
+        data.description = soup.get_text().replace("\r\n", "\n").split("\n")
+        sample_test_case = question.sample_test_case
+        example_test_cases = question.example_testcases
+        num_of_inputs = len(sample_test_case.split("\n"))
+        inputs = example_test_cases.split("\n")
+        data.inputs = [
+            ", ".join(inputs[i : i + num_of_inputs]) for i in range(0, len(inputs), num_of_inputs)
+        ]
+        data.outputs = _extract_example_outputs(data.description)
+        description_inputs = _extract_example_inputs(data.description)
+        if (
+            data.outputs
+            and len(data.inputs) != len(data.outputs)
+            and len(description_inputs) == len(data.outputs)
+        ):
+            data.inputs = description_inputs
+        tmp_description = []
+        for line in data.description:
+            if len(line) > 100:
+                tmp_description.extend(textwrap.wrap(line, width=100, break_long_words=False))
+            else:
+                tmp_description.append(line)
+        data.description = tmp_description
 
-    def _has_cookie(self, cookies: list[Cookie], name: str) -> bool:
-        """Check whether a LeetCode cookie exists."""
-        return any(cookie.name == name and bool(cookie.value) for cookie in cookies)
 
-    def _get_cookie_value(self, cookies: list[Cookie], name: str) -> str:
-        """Return a LeetCode cookie value without logging it."""
-        for cookie in cookies:
-            if cookie.name == name:
-                return cookie.value or ""
-        return ""
+# ============================================================================
+# Module-level helper functions for cookie extraction
+# ============================================================================
 
-    def _build_cookie_header(self, cookies: list[Cookie]) -> str:
-        """Build a Cookie header from browser cookies without a profile-page request."""
-        return "; ".join(f"{cookie.name}={cookie.value}" for cookie in cookies if cookie.value)
+
+_EXAMPLE_HEADER = re.compile(r"^Example(?:\s+\d+)?\s*:", re.IGNORECASE)
+_INPUT_LABEL = re.compile(r"^Input\s*:?\s*(.*)$", re.IGNORECASE)
+_INPUT_BOUNDARY = re.compile(r"^Output\s*:?.*$", re.IGNORECASE)
+_OUTPUT_LABEL = re.compile(r"^Output\s*:?\s*(.*)$", re.IGNORECASE)
+_OUTPUT_BOUNDARY = re.compile(
+    r"^(?:Input|Explanation|Explantion|Constraints)\s*:?",
+    re.IGNORECASE,
+)
+
+
+def _extract_example_inputs(description: list[str]) -> list[str]:
+    """Extract statement inputs for APIs that omit later examples from exampleTestcases."""
+    inputs: list[str] = []
+    input_lines: list[str] | None = None
+    inline_value = False
+    example_started = False
+
+    def finish_input() -> None:
+        nonlocal input_lines, inline_value
+        if input_lines is None:
+            return
+        separator = " " if inline_value or len(input_lines) <= 1 else ", "
+        value = separator.join(input_lines).strip()
+        if value:
+            inputs.append(value)
+        input_lines = None
+        inline_value = False
+
+    for line in description:
+        stripped_line = line.strip()
+        if _EXAMPLE_HEADER.match(stripped_line):
+            finish_input()
+            example_started = True
+            continue
+        if not example_started:
+            continue
+
+        input_match = _INPUT_LABEL.match(stripped_line)
+        if input_match:
+            finish_input()
+            remainder = input_match.group(1).strip()
+            inline_value = bool(remainder)
+            input_lines = [remainder] if remainder else []
+            continue
+
+        if input_lines is not None:
+            if _INPUT_BOUNDARY.match(stripped_line):
+                finish_input()
+            elif stripped_line:
+                input_lines.append(stripped_line)
+
+    finish_input()
+    return inputs
+
+
+def _extract_example_outputs(description: list[str]) -> list[str]:
+    """Extract complete outputs from LeetCode example text, including multiline values."""
+    outputs: list[str] = []
+    output_lines: list[str] | None = None
+    example_started = False
+
+    def finish_output() -> None:
+        nonlocal output_lines
+        if output_lines is None:
+            return
+        output = " ".join(output_lines).strip()
+        if output:
+            outputs.append(output)
+        output_lines = None
+
+    for line in description:
+        stripped_line = line.strip()
+        if _EXAMPLE_HEADER.match(stripped_line):
+            finish_output()
+            example_started = True
+            continue
+        if not example_started:
+            continue
+
+        output_match = _OUTPUT_LABEL.match(stripped_line)
+        if output_match:
+            finish_output()
+            remainder = output_match.group(1).strip()
+            output_lines = [remainder] if remainder else []
+            continue
+
+        if output_lines is not None:
+            if _OUTPUT_BOUNDARY.match(stripped_line):
+                finish_output()
+            elif stripped_line:
+                output_lines.append(stripped_line)
+
+    finish_output()
+    return outputs
+
+
+def _requires_custom_test_harness(meta_data: str | None) -> bool:
+    """Return whether LeetCode validates output through an in-place/custom judge contract."""
+    if not meta_data:
+        return False
+    try:
+        metadata = json.loads(meta_data)
+    except (TypeError, ValueError):
+        return True
+    return not isinstance(metadata, dict) or "output" in metadata
+
+
+def _is_retryable_question_fetch(error: LeetcodeAPIError) -> bool:
+    """Recognize transient endpoint responses for the idempotent questionData query."""
+    cause = error.__cause__
+    return (
+        isinstance(cause, httpx.HTTPStatusError)
+        and cause.response.status_code in _RETRYABLE_QUESTION_FETCH_STATUSES
+    )
+
+
+def _raise_for_leetcode_error(payload: Any, url: str) -> None:
+    """Turn LeetCode's successful-HTTP error payloads into actionable exceptions."""
+    if not isinstance(payload, dict):
+        return
+    error = payload.get("error")
+    if not isinstance(error, str) or not error.strip():
+        return
+
+    message = error.strip()
+    normalized_message = message.casefold()
+    if "not authenticated" in normalized_message or "unauthenticated" in normalized_message:
+        raise LeetcodeAuthError(
+            "LeetCode rejected the saved browser session. Log in to https://leetcode.com "
+            "in Chrome or Firefox and try again."
+        )
+    raise LeetcodeAPIError(f"LeetCode returned an error for {url}: {message}")
+
+
+def _get_leetcode_cookies(cookie_jar: CookieJar) -> list[Cookie]:
+    """Return browser cookies scoped to LeetCode."""
+    return [cookie for cookie in cookie_jar if cookie.domain in LEETCODE_COOKIE_DOMAINS]
+
+
+def _has_cookie(cookies: list[Cookie], name: str) -> bool:
+    """Check whether a LeetCode cookie exists."""
+    return any(cookie.name == name and bool(cookie.value) for cookie in cookies)
+
+
+def _get_cookie_value(cookies: list[Cookie], name: str) -> str:
+    """Return a LeetCode cookie value without logging it."""
+    for cookie in cookies:
+        if cookie.name == name:
+            return cookie.value or ""
+    return ""
+
+
+def _build_cookie_header(cookies: list[Cookie]) -> str:
+    """Build a Cookie header from browser cookies without a profile-page request."""
+    return "; ".join(f"{cookie.name}={cookie.value}" for cookie in cookies if cookie.value)
