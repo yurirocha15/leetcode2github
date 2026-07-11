@@ -12,7 +12,7 @@ import sys
 import click
 from pydantic import BaseModel, ValidationError, field_validator
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 
 class VersionString(BaseModel):
