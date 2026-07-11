@@ -38,14 +38,18 @@ def test_question_data_validates_and_coerces_fields():
 def test_question_db_round_trips_pydantic_models(tmp_path):
     config = make_config(tmp_path)
     question_db = QuestionDB(config)
-    question_db.add_question(QuestionData(id=1, title="Two Sum"))
+    question_db.add_question(QuestionData(id=1, title="Two Sum", requires_custom_test_harness=True))
     question_db.set_id_title_map(IdTitleMap(id_to_title={1: "two-sum"}, title_to_id={"two-sum": 1}))
     question_db.save()
 
     loaded_db = QuestionDB(config)
     loaded_db.load()
 
-    assert loaded_db.get_question(1) == QuestionData(id=1, title="Two Sum")
+    assert loaded_db.get_question(1) == QuestionData(
+        id=1,
+        title="Two Sum",
+        requires_custom_test_harness=True,
+    )
     assert loaded_db.get_title_from_id(1) == "two-sum"
     assert loaded_db.get_id_from_title("two-sum") == 1
 
@@ -63,7 +67,10 @@ def test_question_db_loads_legacy_dict_payloads(tmp_path):
 
     question_db.load()
 
-    assert question_db.get_question(1) == QuestionData(id=1, title="Two Sum")
+    question = question_db.get_question(1)
+    assert question == QuestionData(id=1, title="Two Sum")
+    assert question is not None
+    assert question.requires_custom_test_harness is False
     assert question_db.get_title_from_id(1) == "two-sum"
     assert question_db.get_id_from_title("two-sum") == 1
     assert question_db.migrated_from_legacy is True

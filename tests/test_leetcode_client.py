@@ -44,7 +44,6 @@ def cookie_jar(*cookies: Cookie) -> CookieJar:
 
 def make_client(handler):
     client = LeetcodeClient.__new__(LeetcodeClient)
-    client.divider = "/"
     client.cookies = ""
     client.csrftoken = "csrf"
     client._transport = httpx.MockTransport(handler)
@@ -57,6 +56,7 @@ def question_response(
     content="<p>desc</p>",
     sample_test_case="[1]\n1",
     example_testcases="[1]\n1",
+    meta_data=None,
 ):
     return {
         "data": {
@@ -68,6 +68,7 @@ def question_response(
                 "difficulty": "Easy",
                 "exampleTestcases": example_testcases,
                 "sampleTestCase": sample_test_case,
+                "metaData": meta_data,
                 "topicTags": [{"name": "Array", "slug": "array"}],
                 "codeSnippets": [
                     {
@@ -121,20 +122,6 @@ def test_get_cookies_continues_after_browser_cookie_error(monkeypatch, capsys):
     assert client.csrftoken == "firefox-csrf"
     assert "LEETCODE_SESSION=firefox-session" in client.cookies
     assert "chrome unavailable" in capsys.readouterr().out
-
-
-def test_init_sets_windows_path_divider(monkeypatch):
-    chrome_cookies = cookie_jar(cookie("LEETCODE_SESSION", "session", ".leetcode.com"))
-    monkeypatch.setattr("leet2git.leetcode_client.platform.system", lambda: "Windows")
-    monkeypatch.setattr("leet2git.leetcode_client.browser_cookie3.chrome", lambda: chrome_cookies)
-    monkeypatch.setattr(
-        "leet2git.leetcode_client.browser_cookie3.firefox",
-        lambda: pytest.fail("Firefox should not be used when Chrome has a session"),
-    )
-
-    client = LeetcodeClient()
-
-    assert client.divider == "\\"
 
 
 def test_get_cookies_requires_leetcode_session(monkeypatch):
@@ -191,6 +178,24 @@ def test_get_headers_include_cookie_and_conditional_csrf():
     assert headers["user-agent"]
 
 
+def test_init_supports_public_requests_without_browser_cookies(monkeypatch):
+    monkeypatch.setattr(
+        "leet2git.leetcode_client.browser_cookie3.chrome",
+        lambda: pytest.fail("Public clients must not inspect Chrome cookies"),
+    )
+    monkeypatch.setattr(
+        "leet2git.leetcode_client.browser_cookie3.firefox",
+        lambda: pytest.fail("Public clients must not inspect Firefox cookies"),
+    )
+
+    client = LeetcodeClient(use_browser_cookies=False)
+
+    assert client.cookies == ""
+    assert client.csrftoken == ""
+    assert "cookie" not in client.get_headers()
+    assert "x-csrftoken" not in client.get_headers()
+
+
 def test_get_question_data_parses_description_examples_categories_and_raw_code():
     long_line = " ".join(["word"] * 30)
     content = (
@@ -218,9 +223,8 @@ def test_get_question_data_parses_description_examples_categories_and_raw_code()
 
     client = make_client(handler)
 
-    data, is_new = client.get_question_data(1, "two-sum", "python3", "accepted code")
+    data = client.get_question_data(1, "two-sum", "python3", "accepted code")
 
-    assert is_new is True
     assert data.internal_id == 1
     assert data.title == "Two Sum"
     assert data.url == "https://leetcode.com/problems/two-sum"
@@ -232,6 +236,111 @@ def test_get_question_data_parses_description_examples_categories_and_raw_code()
     assert data.file_path == "src/leetcode_1_two_sum"
     assert any("x^2" in line for line in data.description)
     assert all(len(line) <= 100 for line in data.description if line.startswith("word"))
+
+
+def test_get_question_data_parses_complete_multiline_outputs():
+    content = (
+        '<p><strong class="example">Example 1:</strong></p>\n'
+        "<pre>\n"
+        "<strong>Input:</strong> nums = [1,1,2]\n"
+        "<strong>Output:</strong>\n"
+        "[[1,1,2],\n"
+        " [1,2,1],\n"
+        " [2,1,1]]\n"
+        "<strong>Explantion:</strong> The permutations may be returned in any order.\n"
+        "</pre>\n"
+        '<p><strong class="example">Example 2:</strong></p>\n'
+        "<pre>\n"
+        "<strong>Input:</strong> nums = [1,2,3]\n"
+        "<strong>Output:</strong> [[1,2,3],[1,3,2]]\n"
+        "</pre>"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=question_response(
+                content=content,
+                sample_test_case="[1,1,2]",
+                example_testcases="[1,1,2]\n[1,2,3]",
+            ),
+        )
+
+    data = make_client(handler).get_question_data(47, "permutations-ii", "python3")
+
+    assert data.inputs == ["[1,1,2]", "[1,2,3]"]
+    assert data.outputs == [
+        "[[1,1,2], [1,2,1], [2,1,1]]",
+        "[[1,2,3],[1,3,2]]",
+    ]
+
+
+def test_get_question_data_falls_back_to_statement_inputs_when_graphql_omits_examples():
+    content = """
+<p><strong class="example">Example 1:</strong></p>
+<pre><strong>Input:</strong> nums = [7,12,9,8,9,15], k = 4
+<strong>Output:</strong> 9</pre>
+<p><strong class="example">Example 2:</strong></p>
+<pre><strong>Input:</strong> nums = [2,12,1,11,4,5], k = 6
+<strong>Output:</strong> 0</pre>
+<p><strong class="example">Example 3:</strong></p>
+<pre><strong>Input:</strong> nums = [10,8,5,9,11,6,8], k = 1
+<strong>Output:</strong> 15</pre>
+"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=question_response(
+                content=content,
+                sample_test_case="[7,12,9,8,9,15]\n4",
+                example_testcases="[7,12,9,8,9,15]\n4",
+            ),
+        )
+
+    data = make_client(handler).get_question_data(2917, "find-the-k-or-of-an-array", "python3")
+
+    assert data.inputs == [
+        "nums = [7,12,9,8,9,15], k = 4",
+        "nums = [2,12,1,11,4,5], k = 6",
+        "nums = [10,8,5,9,11,6,8], k = 1",
+    ]
+    assert data.outputs == ["9", "0", "15"]
+
+
+def test_get_question_data_marks_custom_output_metadata_as_unsupported():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=question_response(
+                meta_data=json.dumps(
+                    {
+                        "name": "removeElement",
+                        "output": {"paramindex": 0, "size": "ret"},
+                    }
+                )
+            ),
+        )
+
+    data = make_client(handler).get_question_data(27, "remove-element", "python3")
+
+    assert data.requires_custom_test_harness is True
+
+
+def test_get_question_data_accepts_ordinary_metadata_and_fails_closed_on_malformed_metadata():
+    responses = iter(
+        [
+            question_response(meta_data=json.dumps({"name": "twoSum"})),
+            question_response(meta_data="not-json"),
+        ]
+    )
+    client = make_client(lambda _: httpx.Response(200, json=next(responses)))
+
+    ordinary = client.get_question_data(1, "two-sum", "python3")
+    malformed = client.get_question_data(1, "two-sum", "python3")
+
+    assert ordinary.requires_custom_test_harness is False
+    assert malformed.requires_custom_test_harness is True
 
 
 def test_mutating_requests_require_csrf():
@@ -250,6 +359,29 @@ def test_mutating_requests_require_csrf():
                 test_input="[2,7,11,15]\n9",
             )
         )
+
+
+def test_async_submit_question_reports_rejected_browser_session():
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append((request.method, str(request.url)))
+        return httpx.Response(200, json={"error": "User is not authenticated"})
+
+    client = make_client(handler)
+
+    with pytest.raises(LeetcodeAuthError, match="Log in") as exc_info:
+        asyncio.run(
+            client.async_submit_question(
+                "class Solution: ...",
+                1,
+                "two-sum",
+                "python3",
+            )
+        )
+
+    assert "submission_id" not in str(exc_info.value)
+    assert requests == [("POST", "https://leetcode.com/problems/two-sum/submit/")]
 
 
 def test_async_scrap_question_data_posts_current_graphql_shape():
@@ -291,6 +423,89 @@ def test_async_scrap_question_data_posts_current_graphql_shape():
 
     assert response.data.question
     assert response.data.question.question_id == "1"
+
+
+@pytest.mark.parametrize("status_code", [404, 500, 502, 503, 504])
+def test_async_scrap_question_data_retries_one_transient_endpoint_error(status_code, monkeypatch):
+    request_count = 0
+    sleep_delays = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleep_delays.append(delay)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal request_count
+        request_count += 1
+        if request_count == 1:
+            return httpx.Response(status_code)
+        return httpx.Response(200, json=question_response())
+
+    monkeypatch.setattr("leet2git.leetcode_client.asyncio.sleep", fake_sleep)
+    response = asyncio.run(make_client(handler).async_scrap_question_data("two-sum"))
+
+    assert response.data.question is not None
+    assert request_count == 2
+    assert sleep_delays == [1.0]
+
+
+def test_async_scrap_question_data_stops_after_one_failed_retry(monkeypatch):
+    request_count = 0
+    sleep_delays = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleep_delays.append(delay)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal request_count
+        request_count += 1
+        return httpx.Response(503)
+
+    monkeypatch.setattr("leet2git.leetcode_client.asyncio.sleep", fake_sleep)
+
+    with pytest.raises(LeetcodeAPIError, match="HTTP 503"):
+        asyncio.run(make_client(handler).async_scrap_question_data("two-sum"))
+
+    assert request_count == 2
+    assert sleep_delays == [1.0]
+
+
+@pytest.mark.parametrize("status_code", [400, 403, 429, 501])
+def test_async_scrap_question_data_does_not_retry_blocking_responses(status_code, monkeypatch):
+    request_count = 0
+
+    async def fail_if_slept(_delay: float) -> None:
+        pytest.fail("blocking responses must not be retried")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal request_count
+        request_count += 1
+        return httpx.Response(status_code)
+
+    monkeypatch.setattr("leet2git.leetcode_client.asyncio.sleep", fail_if_slept)
+
+    with pytest.raises(LeetcodeAPIError, match=f"HTTP {status_code}"):
+        asyncio.run(make_client(handler).async_scrap_question_data("two-sum"))
+
+    assert request_count == 1
+
+
+def test_get_question_data_does_not_retry_missing_question_payload(monkeypatch):
+    request_count = 0
+
+    async def fail_if_slept(_delay: float) -> None:
+        pytest.fail("a valid not-found payload must not be retried")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal request_count
+        request_count += 1
+        return httpx.Response(200, json={"data": {"question": None}})
+
+    monkeypatch.setattr("leet2git.leetcode_client.asyncio.sleep", fail_if_slept)
+
+    with pytest.raises(LeetcodeAPIError, match='could not find question "missing"'):
+        make_client(handler).get_question_data(9999, "missing", "python3")
+
+    assert request_count == 1
 
 
 def test_async_get_id_title_map_parses_problem_list():

@@ -4,31 +4,23 @@ Authors:
     - Yuri Rocha (yurirocha15@gmail.com)
 """
 
+import json
 import operator
 import os
 import pickle
+from pickle import UnpicklingError
 
 import click
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from leet2git.config_manager import AppConfig
+from leet2git.leetcode_models import TopicTag
 
 DB_DIR_NAME = ".leet2git"
 DB_FILE_NAME = "database.json"
 LEGACY_QUESTION_DB_FILE = ".question_data.pkl"
 LEGACY_ID_TITLE_MAP_FILE = ".id_title_map.pkl"
 DB_VERSION = 1
-
-
-class TopicTag(BaseModel):
-    """LeetCode topic metadata attached to a question."""
-
-    model_config = ConfigDict(populate_by_name=True, validate_assignment=True)
-
-    name: str = ""
-    slug: str = ""
-    translated_name: str | None = Field(default=None, alias="translatedName")
-    typename: str | None = Field(default=None, alias="__typename")
 
 
 class QuestionData(BaseModel):
@@ -53,6 +45,11 @@ class QuestionData(BaseModel):
     inputs: list[str] = Field(default_factory=list)
     outputs: list[str] = Field(default_factory=list)
     categories: list[TopicTag] = Field(default_factory=list)
+    requires_custom_test_harness: bool = False
+
+    def to_wire_inputs(self) -> str:
+        """Return inputs formatted for LeetCode's test/run wire protocol."""
+        return "\n".join("\n".join(i.split(", ")) for i in self.inputs)
 
     def __setstate__(self, state: dict[str, object]) -> None:
         """Support unpickling state written by the former dataclass model."""
@@ -113,12 +110,18 @@ class QuestionDB:
         self.id_title_map: IdTitleMap = IdTitleMap()
         self.migrated_from_legacy = False
 
-    def load(self):
+    def load(self) -> None:
         """Load the question data from disk"""
         if os.path.isfile(self.db_file):
-            with open(self.db_file, encoding="UTF8") as f:
-                self._load_state(DatabaseState.model_validate_json(f.read()))
-            return
+            try:
+                with open(self.db_file, encoding="UTF8") as f:
+                    self._load_state(DatabaseState.model_validate_json(f.read()))
+            except (ValidationError, json.JSONDecodeError, OSError) as e:
+                click.secho(
+                    f"Warning: Failed to load database: {e}. Starting with empty database.",
+                    fg="yellow",
+                )
+                raise
 
         if os.path.isfile(self.legacy_db_file) or os.path.isfile(self.legacy_id_title_map_file):
             self._load_legacy_pickles()
@@ -129,16 +132,20 @@ class QuestionDB:
                 fg="yellow",
             )
 
-    def save(self):
+    def save(self) -> None:
         """Save the question data to disk"""
-        os.makedirs(self.db_dir, exist_ok=True)
-        state = DatabaseState(
-            version=DB_VERSION,
-            questions=self.question_data_dict,
-            id_title_map=self.id_title_map,
-        )
-        with open(self.db_file, "w", encoding="UTF8") as f:
-            f.write(state.model_dump_json(indent=2, by_alias=True))
+        try:
+            os.makedirs(self.db_dir, exist_ok=True)
+            state = DatabaseState(
+                version=DB_VERSION,
+                questions=self.question_data_dict,
+                id_title_map=self.id_title_map,
+            )
+            with open(self.db_file, "w", encoding="UTF8") as f:
+                f.write(state.model_dump_json(indent=2, by_alias=True))
+        except OSError as e:
+            click.secho(f"Error: Failed to save database: {e}", fg="red")
+            raise
 
     def get_data(self) -> dict[int, QuestionData]:
         """Returns the question data
@@ -149,46 +156,42 @@ class QuestionDB:
         return self.question_data_dict
 
     def get_question(self, question_id: int) -> QuestionData | None:
-        """get a question data if it exists
+        """Get a question data if it exists.
 
         Args:
             question_id (int): the question id
 
         Returns:
-            Optional[QuestionData]: the question data
+            QuestionData | None: the question data if found, None if not found
         """
         if self.check_if_exists(question_id):
             return self.question_data_dict[question_id]
         return None
 
-    def add_question(self, qd: QuestionData):
+    def add_question(self, qd: QuestionData) -> None:
         """Add a question to the dictionary
 
         Args:
-            qd (QuestionData): The question data
+             qd (QuestionData): The question data
         """
         self.question_data_dict[qd.id] = qd
 
-    def delete_question(self, question_id: int):
+    def delete_question(self, question_id: int) -> None:
         """Removes a question from the dictionary
 
         Args:
-            question_id (int): the question id
+             question_id (int): the question id
         """
         if question_id in self.question_data_dict:
             self.question_data_dict.pop(question_id)
 
-    def get_sorted_list(self, sort_by: str) -> list[QuestionData]:
-        """Returns a sorted list with all the questions
-
-        Args:
-            sort_by (str): the attribute used to sort the list.
-            Can be any QuestionData attribute.
+    def get_questions_sorted_by_creation_time(self) -> list[QuestionData]:
+        """Returns a sorted list with all the questions sorted by creation time.
 
         Returns:
-            List[QuestionData]: [description]
+            List[QuestionData]: questions sorted by creation_time
         """
-        return sorted(self.question_data_dict.values(), key=operator.attrgetter(sort_by))
+        return sorted(self.question_data_dict.values(), key=operator.attrgetter("creation_time"))
 
     def check_if_exists(self, question_id: int) -> bool:
         """Checks if a question exists in the database
@@ -201,18 +204,18 @@ class QuestionDB:
         """
         return question_id in self.question_data_dict
 
-    def get_title_from_id(self, question_id: int) -> str:
+    def get_title_from_id(self, question_id: int) -> str | None:
         """Get the question title slug from its id
 
         Args:
             question_id (int): the question id
 
         Returns:
-            str: the question title slug
+            str | None: the question title slug, or None if not cached
         """
         if self.check_if_slug_is_known(question_id):
             return self.id_title_map.id_to_title[question_id]
-        return ""
+        return None
 
     def check_if_slug_is_known(self, question_id: int) -> bool:
         """Checks if the title slug is cached locally
@@ -225,40 +228,40 @@ class QuestionDB:
         """
         return question_id in self.id_title_map.id_to_title
 
-    def get_id_from_title(self, slug: str) -> int:
+    def get_id_from_title(self, slug: str) -> int | None:
         """Get the question id from its title slug
 
         Args:
-            str: the question title slug
+             slug (str): the question title slug
 
         Returns:
-            id (int): the question id
+             int | None: the question id, or None if not cached
         """
         if self.check_if_id_is_known(slug):
             return self.id_title_map.title_to_id[slug]
-        return -1
+        return None
 
     def check_if_id_is_known(self, slug: str) -> bool:
         """Checks if the id is cached locally
 
         Args:
-            str: the question title slug
+             slug (str): the question title slug
 
         Returns:
-            bool: true if the id sis cached locally
+             bool: true if the id sis cached locally
         """
         return slug in self.id_title_map.title_to_id
 
-    def set_id_title_map(self, id_title_map: IdTitleMap):
+    def set_id_title_map(self, id_title_map: IdTitleMap) -> None:
         """Sets the id to slug dict
 
         Args:
-            id_title_map (IdTitleMap):
-                a dictionary mapping the question id to the title slug and vice-versa
+             id_title_map (IdTitleMap):
+                 a dictionary mapping the question id to the title slug and vice-versa
         """
         self.id_title_map = id_title_map
 
-    def reset(self):
+    def reset(self) -> None:
         """Delete database"""
         self.question_data_dict: dict[int, QuestionData] = {}
         self.id_title_map: IdTitleMap = IdTitleMap()
@@ -294,8 +297,20 @@ class QuestionDB:
     def _load_legacy_pickles(self) -> None:
         """Load legacy platform-path pickle files for one-way migration."""
         if os.path.isfile(self.legacy_db_file):
-            with open(self.legacy_db_file, "rb") as f:
-                self.question_data_dict = self._load_question_data(pickle.load(f))
+            try:
+                with open(self.legacy_db_file, "rb") as f:
+                    self.question_data_dict = self._load_question_data(pickle.load(f))
+            except (UnpicklingError, EOFError) as e:
+                click.secho(
+                    f"Warning: Failed to load legacy question database: {e}",
+                    fg="yellow",
+                )
         if os.path.isfile(self.legacy_id_title_map_file):
-            with open(self.legacy_id_title_map_file, "rb") as f:
-                self.id_title_map = self._load_id_title_map(pickle.load(f))
+            try:
+                with open(self.legacy_id_title_map_file, "rb") as f:
+                    self.id_title_map = self._load_id_title_map(pickle.load(f))
+            except (UnpicklingError, EOFError) as e:
+                click.secho(
+                    f"Warning: Failed to load legacy id_title_map: {e}",
+                    fg="yellow",
+                )

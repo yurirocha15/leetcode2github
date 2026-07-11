@@ -9,6 +9,7 @@ import os
 import platform
 import sys
 
+import click
 from pydantic import BaseModel, ValidationError, field_validator
 
 __version__ = "0.3.0"
@@ -40,7 +41,7 @@ def version_info() -> str:
     return "\n".join(f"{k + ':':>30} {v}" for k, v in info.items())
 
 
-def update_version_string(new_version: str):
+def update_version_string(new_version: str) -> None:
     """Updates the version string
 
     Args:
@@ -49,7 +50,7 @@ def update_version_string(new_version: str):
     try:
         version = VersionString(value=new_version).value
     except ValidationError:
-        print(f"Version {new_version} is not valid")
+        click.secho(f"Version {new_version} is not valid", fg="red")
         return
 
     file_path = os.path.abspath(__file__)
@@ -57,7 +58,7 @@ def update_version_string(new_version: str):
         content = f.read()
         version_line = _find_version_line(content)
         if version_line is None:
-            print("Could not find __version__")
+            click.secho("Could not find __version__", fg="red")
             return
 
         lines = content.splitlines(keepends=True)

@@ -1,5 +1,5 @@
-from leet2git.my_utils import get_question_id, reset_config, wait_to_finish_download
-from leet2git.question_db import QuestionData
+from leet2git.cli_helpers import get_question_id, reset_config, wait_to_finish_download
+from leet2git.question_db import IdTitleMap, QuestionData
 
 
 class FakeConfigManager:
@@ -39,7 +39,7 @@ def test_get_question_id_refreshes_unknown_slug_mapping():
 
     class FakeClient:
         def get_id_title_map(self):
-            return type("IdTitleMap", (), {"title_to_id": {"two-sum": 1}})()
+            return IdTitleMap(title_to_id={"two-sum": 1})
 
     qdb = FakeQuestionDB()
 

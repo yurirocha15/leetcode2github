@@ -95,7 +95,7 @@ def test_get_imports_question_and_updates_readme(monkeypatch, tmp_path):
         def save(self):
             self.save_count += 1
 
-        def get_sorted_list(self, sort_by):
+        def get_questions_sorted_by_creation_time(self):
             return sorted(self.questions.values(), key=lambda question: question.creation_time)
 
     class FakeClient:
@@ -205,7 +205,7 @@ def test_delete_removes_files_from_configured_source_path(monkeypatch, tmp_path)
         def save(self):
             pass
 
-        def get_sorted_list(self, sort_by):
+        def get_questions_sorted_by_creation_time(self):
             return []
 
     class FakeReadmeHandler:
@@ -319,7 +319,7 @@ def test_import_all_filters_pages_and_updates_readme(monkeypatch, tmp_path):
         def save(self):
             self.save_count += 1
 
-        def get_sorted_list(self, sort_by):
+        def get_questions_sorted_by_creation_time(self):
             return sorted(self.questions.values(), key=lambda question: question.id)
 
     class FakeClient:

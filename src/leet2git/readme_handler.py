@@ -28,7 +28,7 @@ class ReadmeHandler:
         self.print_categories: bool = config.readme.show_category
         self.print_difficulty: bool = config.readme.show_difficulty
 
-    def build_readme(self, question_list: list[QuestionData]):
+    def build_readme(self, question_list: list[QuestionData]) -> None:
         """Updates the README file
 
         Args:
@@ -55,7 +55,6 @@ class ReadmeHandler:
             fields=["ID", "Problem", "Leetcode ID", "Categories", "Difficulty"],
         )
         for question in question_list:
-            difficulty_str = ""
             if self.print_difficulty:
                 difficulty_str = f"[{question.difficulty}](#{question.difficulty})"
             else:
@@ -81,11 +80,10 @@ class ReadmeHandler:
                     categories_str += c.name + ", "
 
             categories_str = categories_str[:-2]
-            if not question.difficulty:
-                question.difficulty = "Easy"
-            difficulty_tables[question.difficulty].values.append(
+            effective_difficulty = question.difficulty or "Easy"
+            difficulty_tables[effective_difficulty].values.append(
                 [
-                    str(len(difficulty_tables[question.difficulty].values) + 1),
+                    str(len(difficulty_tables[effective_difficulty].values) + 1),
                     f"[{question.title}]({question.file_path})",
                     f"[{question.id}]({question.url})",
                     categories_str,
@@ -176,4 +174,4 @@ if __name__ == "__main__":
     qdb = QuestionDB(config)
     qdb.load()
     rh = ReadmeHandler(config)
-    rh.build_readme(qdb.get_sorted_list(sort_by="creation_time"))
+    rh.build_readme(qdb.get_questions_sorted_by_creation_time())
