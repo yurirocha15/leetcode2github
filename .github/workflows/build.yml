@@ -131,7 +131,7 @@ jobs:
       run: uv run python -m build
     - name: Publish package
       if: ${{ steps.release_version.outputs.should_release == 'true' }}
-      uses: pypa/gh-action-pypi-publish@v1.14.0
+      uses: pypa/gh-action-pypi-publish@v1.14.3
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
